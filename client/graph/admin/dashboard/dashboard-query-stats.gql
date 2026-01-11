@@ -1,3 +1,4 @@
+# This section was modified by Claude Code - added submissionsTotal for review workflow
 query {
   system {
     info {
@@ -7,6 +8,7 @@ query {
       pagesTotal
       usersTotal
       tagsTotal
+      submissionsTotal
     }
   }
 }

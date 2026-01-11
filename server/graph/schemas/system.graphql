@@ -87,6 +87,8 @@ type SystemInfo {
   operatingSystem: String @auth(requires: ["manage:system"])
   pagesTotal: Int @auth(requires: ["manage:system", "manage:navigation", "manage:pages", "delete:pages"])
   platform: String @auth(requires: ["manage:system"])
+  # This section was modified by Claude Code - added submissionsTotal for review workflow
+  submissionsTotal: Int @auth(requires: ["manage:system", "review:pages"])
   ramTotal: String @auth(requires: ["manage:system"])
   sslDomain: String @auth(requires: ["manage:system"])
   sslExpirationDate: Date @auth(requires: ["manage:system"])

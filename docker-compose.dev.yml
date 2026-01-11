@@ -1,0 +1,37 @@
+# This file was created by Claude Code - Development Docker Compose for Wiki.js
+version: "3"
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: wiki
+      POSTGRES_PASSWORD: wikijsrocks
+      POSTGRES_USER: wikijs
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  wiki:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    depends_on:
+      - db
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: wikijs
+      DB_PASS: wikijsrocks
+      DB_NAME: wiki
+      NODE_OPTIONS: --openssl-legacy-provider
+    ports:
+      - "3080:3000"
+    volumes:
+      - wiki-data:/wiki/data
+      - ./config.yml:/wiki/config.yml
+
+volumes:
+  db-data:
+  wiki-data:

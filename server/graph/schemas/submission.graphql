@@ -1,0 +1,162 @@
+# ===============================================
+# PAGE SUBMISSIONS (Review Workflow)
+# This file was created by Claude Code
+# ===============================================
+
+extend type Query {
+  submissions: SubmissionQuery
+}
+
+extend type Mutation {
+  submissions: SubmissionMutation
+}
+
+# -----------------------------------------------
+# QUERIES
+# -----------------------------------------------
+
+type SubmissionQuery {
+  """
+  List all submissions with optional filters
+  """
+  list(
+    status: SubmissionStatus
+    submitterId: Int
+    limit: Int
+    offset: Int
+  ): [PageSubmissionListItem]! @auth(requires: ["review:pages", "manage:system"])
+
+  """
+  Get pending submissions count
+  """
+  pendingCount: Int! @auth(requires: ["review:pages", "manage:system"])
+
+  """
+  Get a single submission by ID
+  """
+  single(
+    id: Int!
+  ): PageSubmission @auth(requires: ["review:pages", "manage:system"])
+
+  """
+  Get submissions for the current user
+  """
+  mySubmissions(
+    status: SubmissionStatus
+    limit: Int
+    offset: Int
+  ): [PageSubmissionListItem]! @auth(requires: ["write:pages"])
+}
+
+# -----------------------------------------------
+# MUTATIONS
+# -----------------------------------------------
+
+type SubmissionMutation {
+  """
+  Submit a new page or page edit for review
+  """
+  submit(
+    pageId: Int
+    content: String!
+    description: String!
+    editor: String!
+    isPrivate: Boolean!
+    locale: String!
+    path: String!
+    scriptCss: String
+    scriptJs: String
+    tags: [String]!
+    title: String!
+  ): SubmissionResponse @auth(requires: ["write:pages"])
+
+  """
+  Approve a pending submission (publishes the page)
+  """
+  approve(
+    id: Int!
+    comment: String
+  ): SubmissionResponse @auth(requires: ["review:pages", "manage:system"])
+
+  """
+  Reject a pending submission
+  """
+  reject(
+    id: Int!
+    comment: String!
+  ): SubmissionResponse @auth(requires: ["review:pages", "manage:system"])
+
+  """
+  Update a submission's content (for editing before approval)
+  """
+  update(
+    id: Int!
+    content: String!
+    title: String
+    description: String
+  ): SubmissionResponse @auth(requires: ["review:pages", "manage:system"])
+
+  """
+  Delete a submission (only by submitter if still pending)
+  """
+  delete(
+    id: Int!
+  ): DefaultResponse @auth(requires: ["write:pages"])
+}
+
+# -----------------------------------------------
+# TYPES
+# -----------------------------------------------
+
+type SubmissionResponse {
+  responseResult: ResponseStatus!
+  submission: PageSubmission
+}
+
+type PageSubmission {
+  id: Int!
+  pageId: Int
+  path: String!
+  hash: String!
+  title: String!
+  description: String
+  content: String!
+  contentMarkdown: String
+  contentType: String!
+  editorKey: String!
+  localeCode: String!
+  isPrivate: Boolean!
+  tags: [String]
+  status: SubmissionStatus!
+  submitterId: Int!
+  submitterName: String!
+  submitterEmail: String!
+  reviewerId: Int
+  reviewerName: String
+  reviewComment: String
+  createdAt: Date!
+  updatedAt: Date!
+  reviewedAt: Date
+}
+
+type PageSubmissionListItem {
+  id: Int!
+  pageId: Int
+  path: String!
+  title: String!
+  description: String
+  localeCode: String!
+  status: SubmissionStatus!
+  submitterName: String!
+  submitterEmail: String!
+  reviewerName: String
+  createdAt: Date!
+  updatedAt: Date!
+  reviewedAt: Date
+}
+
+enum SubmissionStatus {
+  pending
+  approved
+  rejected
+}

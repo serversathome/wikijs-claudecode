@@ -29,6 +29,13 @@
               v-list-item-action(style='min-width:auto;')
                 v-chip(x-small, :color='$vuetify.theme.dark ? `grey darken-3-d4` : `grey lighten-5`')
                   .caption.grey--text {{ info.pagesTotal }}
+//- This section was modified by Claude Code - Page Submissions nav item for review workflow
+            v-list-item(to='/submissions', color='primary', v-if='hasPermission([`manage:system`, `review:pages`])')
+              v-list-item-avatar(size='24', tile): v-icon mdi-file-send-outline
+              v-list-item-title Page Submissions
+              v-list-item-action(style='min-width:auto;', v-if='info.submissionsTotal > 0')
+                v-chip(x-small, color='orange', text-color='white')
+                  .caption {{ info.submissionsTotal }}
             v-list-item(to='/tags', v-if='hasPermission([`manage:system`])')
               v-list-item-avatar(size='24', tile): v-icon mdi-tag-multiple
               v-list-item-title {{ $t('admin:tags.title') }}
@@ -151,6 +158,8 @@ const router = new VueRouter({
     { path: '/pages', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-pages.vue') },
     { path: '/pages/:id(\\d+)', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-pages-edit.vue') },
     { path: '/pages/visualize', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-pages-visualize.vue') },
+    // This section was modified by Claude Code - submissions route for review workflow
+    { path: '/submissions', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-submissions.vue') },
     { path: '/tags', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-tags.vue') },
     { path: '/theme', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-theme.vue') },
     { path: '/groups', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-groups.vue') },

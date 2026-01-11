@@ -17,6 +17,7 @@
           .overline.amber--text.mr-3 Conflict
           status-indicator(intermediary, pulse)
         v-btn.animated.fadeInDown(
+          v-if='canPublish'
           text
           color='green'
           @click.exact='save'
@@ -26,6 +27,16 @@
           v-icon(color='green', :left='$vuetify.breakpoint.lgAndUp') mdi-check
           span.grey--text(v-if='$vuetify.breakpoint.lgAndUp && mode !== `create` && !isDirty') {{ $t('editor:save.saved') }}
           span.white--text(v-else-if='$vuetify.breakpoint.lgAndUp') {{ mode === 'create' ? $t('common:actions.create') : $t('common:actions.save') }}
+//- This section was modified by Claude Code - Submit for Review button for review workflow
+        v-btn.animated.fadeInDown(
+          v-else
+          text
+          color='orange'
+          @click.exact='submitForReview'
+          :class='{ "is-icon": $vuetify.breakpoint.mdAndDown }'
+          )
+          v-icon(color='orange', :left='$vuetify.breakpoint.lgAndUp') mdi-file-send-outline
+          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') Submit for Review
         v-btn.animated.fadeInDown.wait-p1s(
           text
           color='blue'
@@ -198,6 +209,22 @@ export default {
         this.savedState.css !== this.$store.get('page/scriptCss'),
         this.savedState.js !== this.$store.get('page/scriptJs')
       ], Boolean)
+    },
+    // This section was modified by Claude Code - canPublish check for review workflow
+    canPublish () {
+      // Check if user has manage:pages or review:pages permission (can publish directly)
+      // Otherwise they need to submit for review
+      const perms = this.$store.get('page/effectivePermissions')
+      // If permissions aren't loaded yet, default to allowing publish
+      if (!perms || typeof perms !== 'object') {
+        return true
+      }
+      // Check for manage or review permissions
+      return (
+        (perms.system && perms.system.manage) ||
+        (perms.pages && perms.pages.manage) ||
+        (perms.pages && perms.pages.review)
+      )
     }
   },
   watch: {
@@ -491,6 +518,100 @@ export default {
           this.hideProgressDialog()
           throw err
         }
+      }
+      clearTimeout(saveTimeoutHandle)
+      this.isSaving = false
+      this.hideProgressDialog()
+    },
+    // This section was modified by Claude Code - submitForReview method for review workflow
+    async submitForReview() {
+      this.showProgressDialog('submitting')
+      this.isSaving = true
+
+      const saveTimeoutHandle = setTimeout(() => {
+        throw new Error('Submit operation timed out.')
+      }, 30000)
+
+      try {
+        let resp = await this.$apollo.mutate({
+          mutation: gql`
+            mutation (
+              $pageId: Int
+              $content: String!
+              $description: String!
+              $editor: String!
+              $isPrivate: Boolean!
+              $locale: String!
+              $path: String!
+              $scriptCss: String
+              $scriptJs: String
+              $tags: [String]!
+              $title: String!
+            ) {
+              submissions {
+                submit(
+                  pageId: $pageId
+                  content: $content
+                  description: $description
+                  editor: $editor
+                  isPrivate: $isPrivate
+                  locale: $locale
+                  path: $path
+                  scriptCss: $scriptCss
+                  scriptJs: $scriptJs
+                  tags: $tags
+                  title: $title
+                ) {
+                  responseResult {
+                    succeeded
+                    errorCode
+                    slug
+                    message
+                  }
+                  submission {
+                    id
+                  }
+                }
+              }
+            }
+          `,
+          variables: {
+            pageId: this.mode === 'create' ? null : this.$store.get('page/id'),
+            content: this.$store.get('editor/content'),
+            description: this.$store.get('page/description'),
+            editor: this.$store.get('editor/editorKey'),
+            locale: this.$store.get('page/locale'),
+            isPrivate: false,
+            path: this.$store.get('page/path'),
+            scriptCss: this.$store.get('page/scriptCss'),
+            scriptJs: this.$store.get('page/scriptJs'),
+            tags: this.$store.get('page/tags'),
+            title: this.$store.get('page/title')
+          }
+        })
+        resp = _.get(resp, 'data.submissions.submit', {})
+        if (_.get(resp, 'responseResult.succeeded')) {
+          this.$store.commit('showNotification', {
+            message: 'Page submitted for review. An administrator will review your changes.',
+            style: 'success',
+            icon: 'check'
+          })
+          this.exitConfirmed = true
+          // Redirect back to the page or home
+          if (this.mode === 'create') {
+            window.location.assign('/')
+          } else {
+            window.location.assign(`/${this.$store.get('page/locale')}/${this.$store.get('page/path')}`)
+          }
+        } else {
+          throw new Error(_.get(resp, 'responseResult.message'))
+        }
+      } catch (err) {
+        this.$store.commit('showNotification', {
+          message: err.message,
+          style: 'error',
+          icon: 'warning'
+        })
       }
       clearTimeout(saveTimeoutHandle)
       this.isSaving = false
