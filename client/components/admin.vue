@@ -29,7 +29,7 @@
               v-list-item-action(style='min-width:auto;')
                 v-chip(x-small, :color='$vuetify.theme.dark ? `grey darken-3-d4` : `grey lighten-5`')
                   .caption.grey--text {{ info.pagesTotal }}
-//- This section was modified by Claude Code - Page Submissions nav item for review workflow
+            //- This section was modified by Claude Code - Page Submissions nav item for review workflow
             v-list-item(to='/submissions', color='primary', v-if='hasPermission([`manage:system`, `review:pages`])')
               v-list-item-avatar(size='24', tile): v-icon mdi-file-send-outline
               v-list-item-title Page Submissions

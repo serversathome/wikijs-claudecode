@@ -27,7 +27,7 @@
           v-icon(color='green', :left='$vuetify.breakpoint.lgAndUp') mdi-check
           span.grey--text(v-if='$vuetify.breakpoint.lgAndUp && mode !== `create` && !isDirty') {{ $t('editor:save.saved') }}
           span.white--text(v-else-if='$vuetify.breakpoint.lgAndUp') {{ mode === 'create' ? $t('common:actions.create') : $t('common:actions.save') }}
-//- This section was modified by Claude Code - Submit for Review button for review workflow
+        //- This section was modified by Claude Code - Submit for Review button for review workflow
         v-btn.animated.fadeInDown(
           v-else
           text
