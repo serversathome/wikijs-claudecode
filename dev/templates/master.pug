@@ -19,11 +19,20 @@ html(lang=siteConfig.lang)
     meta(property='og:url', content=pageMeta.url)
     meta(property='og:site_name', content=config.title)
 
-    //- Favicon
-    link(rel='apple-touch-icon', sizes='180x180', href='/_assets/favicons/apple-touch-icon.png')
-    link(rel='icon', type='image/png', sizes='192x192', href='/_assets/favicons/android-chrome-192x192.png')
-    link(rel='icon', type='image/png', sizes='32x32', href='/_assets/favicons/favicon-32x32.png')
-    link(rel='icon', type='image/png', sizes='16x16', href='/_assets/favicons/favicon-16x16.png')
+    //- Favicon - This section was modified by Claude Code to use site logo as favicon
+    //- Only use custom logo if it's set and not the default Wiki.js butterfly
+    - var useCustomFavicon = siteConfig.logoUrl && !siteConfig.logoUrl.includes('wikijs-butterfly')
+    if useCustomFavicon
+      link(rel='apple-touch-icon', sizes='180x180', href=siteConfig.logoUrl)
+      link(rel='icon', type='image/png', sizes='192x192', href=siteConfig.logoUrl)
+      link(rel='icon', type='image/png', sizes='32x32', href=siteConfig.logoUrl)
+      link(rel='icon', type='image/png', sizes='16x16', href=siteConfig.logoUrl)
+      link(rel='shortcut icon', href=siteConfig.logoUrl)
+    else
+      link(rel='apple-touch-icon', sizes='180x180', href='/_assets/favicons/apple-touch-icon.png')
+      link(rel='icon', type='image/png', sizes='192x192', href='/_assets/favicons/android-chrome-192x192.png')
+      link(rel='icon', type='image/png', sizes='32x32', href='/_assets/favicons/favicon-32x32.png')
+      link(rel='icon', type='image/png', sizes='16x16', href='/_assets/favicons/favicon-16x16.png')
     link(rel='mask-icon', href='/_assets/favicons/safari-pinned-tab.svg', color='#1976d2')
     link(rel='manifest', href='/_assets/manifest.json')
 
