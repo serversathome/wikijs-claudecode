@@ -53,7 +53,7 @@ services:
       POSTGRES_PASSWORD: wikijsrocks
       POSTGRES_USER: wikijs
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - ./db-data:/var/lib/postgresql/data
     restart: unless-stopped
 
   wiki:
@@ -71,9 +71,6 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
-
-volumes:
-  db-data:
 ```
 
 Then run:
