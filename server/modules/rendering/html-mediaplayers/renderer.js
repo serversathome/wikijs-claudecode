@@ -3,8 +3,6 @@
  * HTML Media Players Renderer - Converts oembed tags and video links to embedded players
  */
 
-const defined = require('../../../app/regex')
-
 // Extended YouTube regex that handles more URL formats
 const rxYoutube = /^.*(?:(?:youtu\.be\/|v\/|vi\/|u\/\w\/|embed\/|shorts\/)|(?:(?:watch)?\?v(?:i)?=|&v(?:i)?=))([^#&?]*).*/
 
@@ -64,7 +62,6 @@ module.exports = {
     })
 
     // Process plain text video URLs in paragraphs (for markdown bare URLs)
-    // This regex matches video URLs that might appear as plain text
     const videoUrlRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|vimeo\.com\/|dailymotion\.com\/video\/|dai\.ly\/)[^\s]+$/i
 
     $('p').each((idx, elm) => {
