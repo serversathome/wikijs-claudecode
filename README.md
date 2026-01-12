@@ -44,10 +44,10 @@ docker pull ghcr.io/serversathome/wikijs-claudecode:latest
 Create a `docker-compose.yml` file:
 
 ```yaml
-version: "3"
 services:
   db:
     image: postgres:15-alpine
+    container_name: wikijs-db
     environment:
       POSTGRES_DB: wiki
       POSTGRES_PASSWORD: wikijsrocks
@@ -58,6 +58,7 @@ services:
 
   wiki:
     image: ghcr.io/serversathome/wikijs-claudecode:latest
+    container_name: wikijs
     depends_on:
       - db
     environment:
