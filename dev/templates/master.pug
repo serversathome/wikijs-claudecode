@@ -98,9 +98,48 @@ html(lang=siteConfig.lang)
 
     != analyticsCode.head
 
+    //- Video Embed Styles - This section was modified by Claude Code
+    style.
+      .responsive-embed{position:relative;padding-bottom:56.2%;height:0;margin:10px 0;overflow:hidden}
+      .responsive-embed iframe,.responsive-embed video{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:15px}
+
     block head
 
   body
     != analyticsCode.bodyStart
     block body
     != analyticsCode.bodyEnd
+
+    //- Video Embed Script - This section was modified by Claude Code
+    //- Converts YouTube, Screencast, and MP4 links to embedded players client-side
+    script.
+      (function() {
+        const rxYoutube = /^.*((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/|shorts\/)?)([\w\-]+)(\S+)?$/;
+        const rxScreencast = /^.*((?:https?:)?\/\/)?(www\.)?(screencast\.com)(\/users)\/([a-z0-9_-]+)\/folders\/([a-z0-9%_-]+)\/media\/([a-z0-9_-]+)(?:\/)?$/im;
+        if (window.boot && window.boot.register) {
+          window.boot.register('vue', function() {
+            window.onload = function() {
+              document.querySelectorAll('.contents oembed, .contents a').forEach(function(elm) {
+                var url = elm.hasAttribute('url') ? elm.getAttribute('url') : elm.getAttribute('href');
+                if (!url) return;
+                var newElmHtml = null;
+                var ytMatch = url.match(rxYoutube);
+                var scMatch = url.match(rxScreencast);
+                if (ytMatch && ytMatch[5]) {
+                  newElmHtml = '<iframe id="ytplayer" type="text/html" width="640" height="360" src="https://www.youtube-nocookie.com/embed/' + ytMatch[5] + '" frameborder="0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+                } else if (scMatch) {
+                  newElmHtml = '<iframe id="scplayer" type="text/html" width="640" height="360" src="' + url + '/embed" frameborder="0" allowfullscreen></iframe>';
+                } else if (url.endsWith('.mp4')) {
+                  newElmHtml = '<video controls autostart="0" name="media" width="640" height="360"><source src="' + url + '" type="video/mp4"></video>';
+                } else {
+                  return;
+                }
+                var newElm = document.createElement('div');
+                newElm.classList.add('responsive-embed');
+                newElm.insertAdjacentHTML('beforeend', newElmHtml);
+                elm.replaceWith(newElm);
+              });
+            };
+          });
+        }
+      })();

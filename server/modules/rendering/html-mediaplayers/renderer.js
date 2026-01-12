@@ -99,9 +99,8 @@ function generateEmbed(url) {
   const ytMatch = url.match(rxYoutube)
   if (ytMatch && ytMatch[1]) {
     return `<div class="responsive-embed">
-      <iframe src="https://www.youtube-nocookie.com/embed/${ytMatch[1]}"
+      <iframe src="https://www.youtube.com/embed/${ytMatch[1]}?rel=0"
         frameborder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowfullscreen>
       </iframe>
     </div>`
