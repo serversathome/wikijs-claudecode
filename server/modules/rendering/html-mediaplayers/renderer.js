@@ -62,6 +62,33 @@ module.exports = {
         }
       }
     })
+
+    // Process plain text video URLs in paragraphs (for markdown bare URLs)
+    // This regex matches video URLs that might appear as plain text
+    const videoUrlRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|vimeo\.com\/|dailymotion\.com\/video\/|dai\.ly\/)[^\s]+$/i
+
+    $('p').each((idx, elm) => {
+      const $p = $(elm)
+      const text = $p.text().trim()
+
+      // Only process if the paragraph contains just a URL (no other content)
+      if (!text || !videoUrlRegex.test(text)) return
+
+      // Make sure it's not already processed (no children that are embeds)
+      if ($p.find('iframe, .responsive-embed').length > 0) return
+
+      // Check if paragraph has only text nodes (no other elements except maybe whitespace)
+      const hasOnlyText = $p.contents().toArray().every(node => {
+        return node.type === 'text' || (node.type === 'tag' && $(node).text().trim() === '')
+      })
+
+      if (!hasOnlyText) return
+
+      const embedHtml = generateEmbed(text)
+      if (embedHtml) {
+        $p.replaceWith(embedHtml)
+      }
+    })
   }
 }
 
