@@ -22,6 +22,74 @@
 
 </div>
 
+---
+
+## Fork: Wiki.js with Review Workflow
+
+This is a modified version of Wiki.js with additional features including:
+- **Page submission review workflow** - Pages can be submitted for review before publishing
+- **Built-in video embeds** - YouTube, Vimeo, Dailymotion, Screencast, and MP4/WebM/OGG support
+- **Custom favicon from logo** - Site logo automatically used as favicon
+
+### Quick Start for Testers
+
+Pull the pre-built image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/serversathome/wikijs-claudecode:latest
+```
+
+### Sample Docker Compose
+
+Create a `docker-compose.yml` file:
+
+```yaml
+version: "3"
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: wiki
+      POSTGRES_PASSWORD: wikijsrocks
+      POSTGRES_USER: wikijs
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  wiki:
+    image: ghcr.io/serversathome/wikijs-claudecode:latest
+    depends_on:
+      - db
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: wikijs
+      DB_PASS: wikijsrocks
+      DB_NAME: wiki
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  db-data:
+```
+
+Then run:
+
+```bash
+docker compose up -d
+```
+
+Access the wiki at `http://localhost:3000`
+
+### Notes for Testers
+
+- **YouTube embeds**: Disable "Referrer Policy" in Admin > Security for YouTube videos to work
+- **Video embeds are automatic**: Just paste a video URL on its own line in the editor
+
+---
+
 - **[Official Website](https://js.wiki/)**
 - **[Documentation](https://docs.requarks.io/)**
 - [Requirements](https://docs.requarks.io/install/requirements)
