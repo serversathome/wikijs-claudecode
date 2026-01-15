@@ -69,6 +69,19 @@ module.exports = {
   },
 
   /**
+   * Build a full URL to a page
+   * @param {string} localeCode - Locale code (e.g., 'en')
+   * @param {string} path - Page path
+   * @param {string} [hash] - Optional URL hash/anchor
+   * @returns {string} - Full URL
+   */
+  buildPageUrl(localeCode, path, hash = '') {
+    const host = WIKI.config.host || 'http://localhost'
+    const hashPart = hash ? `#${hash}` : ''
+    return `${host}/${localeCode}/${path}${hashPart}`
+  },
+
+  /**
    * Notify about a new comment
    * @param {Object} page - Page object
    * @param {Object} author - Comment author
@@ -78,10 +91,20 @@ module.exports = {
       return
     }
     const authorName = author ? (author.name || author.email || 'Anonymous') : 'Anonymous'
+    const pageUrl = this.buildPageUrl(page.localeCode, page.path, 'comments')
     await this.send(
       'New Comment',
-      `A new comment was posted by ${authorName} on page "${page.title}" (${page.path})`
+      `A new comment was posted by ${authorName} on page "${page.title}"\n\n${pageUrl}`
     )
+  },
+
+  /**
+   * Build a URL to the admin submissions page
+   * @returns {string} - Full URL to submissions admin
+   */
+  buildSubmissionsUrl() {
+    const host = WIKI.config.host || 'http://localhost'
+    return `${host}/a/submissions`
   },
 
   /**
@@ -92,9 +115,10 @@ module.exports = {
     if (!_.get(WIKI.config, 'notification.onPageSubmitted', false)) {
       return
     }
+    const submissionsUrl = this.buildSubmissionsUrl()
     await this.send(
       'Page Submitted for Review',
-      `A new page "${submission.title}" was submitted for review by ${submission.submitterName || 'Unknown'}`
+      `A new page "${submission.title}" was submitted for review by ${submission.submitterName || 'Unknown'}\n\nReview it here: ${submissionsUrl}`
     )
   },
 
@@ -108,9 +132,10 @@ module.exports = {
       return
     }
     const reviewerName = reviewer ? (reviewer.name || reviewer.email || 'Admin') : 'Admin'
+    const pageUrl = this.buildPageUrl(submission.localeCode, submission.path)
     await this.send(
       'Page Approved',
-      `The page "${submission.title}" was approved by ${reviewerName}`
+      `The page "${submission.title}" was approved by ${reviewerName}\n\nView it here: ${pageUrl}`
     )
   },
 
@@ -126,9 +151,10 @@ module.exports = {
     }
     const reviewerName = reviewer ? (reviewer.name || reviewer.email || 'Admin') : 'Admin'
     const reasonText = reason ? `\nReason: ${reason}` : ''
+    const submissionsUrl = this.buildSubmissionsUrl()
     await this.send(
       'Page Rejected',
-      `The page "${submission.title}" was rejected by ${reviewerName}${reasonText}`
+      `The page "${submission.title}" was rejected by ${reviewerName}${reasonText}\n\nView details: ${submissionsUrl}`
     )
   }
 }
