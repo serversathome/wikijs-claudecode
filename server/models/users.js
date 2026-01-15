@@ -757,6 +757,10 @@ module.exports = class User extends Model {
       await WIKI.models.pages.query().patch({ authorId: replaceId }).where('authorId', id)
       await WIKI.models.pages.query().patch({ creatorId: replaceId }).where('creatorId', id)
 
+      // This section was modified by Claude Code - Handle pageSubmissions when deleting user
+      await WIKI.models.pageSubmissions.query().patch({ submitterId: replaceId }).where('submitterId', id)
+      await WIKI.models.pageSubmissions.query().patch({ reviewerId: replaceId }).where('reviewerId', id)
+
       await WIKI.models.userKeys.query().delete().where('userId', id)
       await WIKI.models.users.query().deleteById(id)
     } else {
