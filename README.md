@@ -33,13 +33,7 @@ This is a modified version of Wiki.js with additional features including:
 
 ### Quick Start for Testers
 
-First, authenticate with GitHub Container Registry using a Personal Access Token (PAT) with `read:packages` scope:
-
-```bash
-echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-```
-
-Then pull the image:
+Pull the pre-built image from GitHub Container Registry:
 
 ```bash
 docker pull ghcr.io/serversathome/wikijs-claudecode:latest
