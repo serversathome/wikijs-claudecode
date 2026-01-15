@@ -156,5 +156,31 @@ module.exports = {
       'Page Rejected',
       `The page "${submission.title}" was rejected by ${reviewerName}${reasonText}\n\nView details: ${submissionsUrl}`
     )
+  },
+
+  /**
+   * Build a URL to the admin users page
+   * @returns {string} - Full URL to users admin
+   */
+  buildUsersUrl() {
+    const host = WIKI.config.host || 'http://localhost'
+    return `${host}/a/users`
+  },
+
+  /**
+   * Notify about a new user signup
+   * @param {Object} user - User object with name and email
+   */
+  async notifyNewUser(user) {
+    if (!_.get(WIKI.config, 'notification.onNewUser', false)) {
+      return
+    }
+    const userName = user.name || 'Unknown'
+    const userEmail = user.email || 'No email'
+    const usersUrl = this.buildUsersUrl()
+    await this.send(
+      'New User Registered',
+      `A new user has registered:\n\nName: ${userName}\nEmail: ${userEmail}\n\nManage users: ${usersUrl}`
+    )
   }
 }

@@ -668,6 +668,13 @@ module.exports = class User extends Model {
           text: `You've been invited to the wiki ${WIKI.config.title}: ${WIKI.config.host}/login`
         })
       }
+
+      // This section was modified by Claude Code - Send notification for new user
+      try {
+        await WIKI.notification.notifyNewUser({ name, email })
+      } catch (err) {
+        WIKI.logger.warn('Failed to send new user notification: ' + err.message)
+      }
     } else {
       throw new WIKI.Error.AuthAccountAlreadyExists()
     }

@@ -20,6 +20,7 @@ module.exports = {
       return {
         appriseUrls: _.get(WIKI.config, 'notification.appriseUrls', ''),
         onNewComment: _.get(WIKI.config, 'notification.onNewComment', false),
+        onNewUser: _.get(WIKI.config, 'notification.onNewUser', false),
         onPageSubmitted: _.get(WIKI.config, 'notification.onPageSubmitted', false),
         onPageApproved: _.get(WIKI.config, 'notification.onPageApproved', false),
         onPageRejected: _.get(WIKI.config, 'notification.onPageRejected', false)
@@ -47,6 +48,7 @@ module.exports = {
         WIKI.config.notification = {
           appriseUrls: args.appriseUrls,
           onNewComment: args.onNewComment,
+          onNewUser: args.onNewUser,
           onPageSubmitted: args.onPageSubmitted,
           onPageApproved: args.onPageApproved,
           onPageRejected: args.onPageRejected

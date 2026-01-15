@@ -49,6 +49,15 @@
                     inset
                     )
                   v-switch(
+                    v-model='config.onNewUser'
+                    label='New User Registered'
+                    color='primary'
+                    prepend-icon='mdi-account-plus'
+                    persistent-hint
+                    hint='Send notification when a new user registers or is created'
+                    inset
+                    )
+                  v-switch(
                     v-model='config.onPageSubmitted'
                     label='Page Submitted for Review'
                     color='primary'
@@ -119,6 +128,7 @@ export default {
       config: {
         appriseUrls: '',
         onNewComment: false,
+        onNewUser: false,
         onPageSubmitted: false,
         onPageApproved: false,
         onPageRejected: false
@@ -134,6 +144,7 @@ export default {
             mutation (
               $appriseUrls: String!
               $onNewComment: Boolean!
+              $onNewUser: Boolean!
               $onPageSubmitted: Boolean!
               $onPageApproved: Boolean!
               $onPageRejected: Boolean!
@@ -142,6 +153,7 @@ export default {
                 updateConfig(
                   appriseUrls: $appriseUrls
                   onNewComment: $onNewComment
+                  onNewUser: $onNewUser
                   onPageSubmitted: $onPageSubmitted
                   onPageApproved: $onPageApproved
                   onPageRejected: $onPageRejected
@@ -159,6 +171,7 @@ export default {
           variables: {
             appriseUrls: this.config.appriseUrls || '',
             onNewComment: this.config.onNewComment || false,
+            onNewUser: this.config.onNewUser || false,
             onPageSubmitted: this.config.onPageSubmitted || false,
             onPageApproved: this.config.onPageApproved || false,
             onPageRejected: this.config.onPageRejected || false
@@ -218,6 +231,7 @@ export default {
             config {
               appriseUrls
               onNewComment
+              onNewUser
               onPageSubmitted
               onPageApproved
               onPageRejected

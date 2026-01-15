@@ -58,6 +58,7 @@ defaults:
     notification:
       appriseUrls: ''
       onNewComment: false
+      onNewUser: false
       onPageSubmitted: false
       onPageApproved: false
       onPageRejected: false

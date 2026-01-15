@@ -29,6 +29,7 @@ type NotificationMutation {
   updateConfig(
     appriseUrls: String!
     onNewComment: Boolean!
+    onNewUser: Boolean!
     onPageSubmitted: Boolean!
     onPageApproved: Boolean!
     onPageRejected: Boolean!
@@ -42,6 +43,7 @@ type NotificationMutation {
 type NotificationConfig {
   appriseUrls: String
   onNewComment: Boolean
+  onNewUser: Boolean
   onPageSubmitted: Boolean
   onPageApproved: Boolean
   onPageRejected: Boolean
