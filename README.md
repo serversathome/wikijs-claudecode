@@ -45,6 +45,7 @@ This is a modified version of Wiki.js with additional features including:
 - **Page submission review workflow** - Pages can be submitted for review before publishing
 - **Built-in video embeds** - YouTube, Vimeo, Dailymotion, Screencast, and MP4/WebM/OGG support
 - **Custom favicon from logo** - Site logo automatically used as favicon
+- **Apprise notifications** - Get notified via Discord, Slack, Telegram, email, and 80+ services when comments are posted or pages are submitted for review
 
 ### Quick Start for Testers
 
@@ -100,6 +101,7 @@ Access the wiki at `http://localhost:3000`
 
 - **YouTube embeds**: Disable "Referrer Policy" in Admin > Security for YouTube videos to work
 - **Video embeds are automatic**: Just paste a video URL on its own line in the editor
+- **Apprise notifications**: Configure in Admin > Notifications with your Apprise URLs (e.g., `discord://webhook_id/webhook_token`)
 
 ---
 

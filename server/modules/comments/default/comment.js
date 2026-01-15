@@ -117,6 +117,13 @@ module.exports = {
     // -> Save Comment to DB
     const cm = await WIKI.models.comments.query().insert(newComment)
 
+    // This section was modified by Claude Code - Send notification for new comment
+    try {
+      await WIKI.notification.notifyNewComment(page, user)
+    } catch (err) {
+      WIKI.logger.warn('Failed to send comment notification: ' + err.message)
+    }
+
     // -> Return Comment ID
     return cm.id
   },

@@ -54,6 +54,13 @@ defaults:
       host: ''
       secure: true
       verifySSL: true
+    # This section was added by Claude Code - Apprise notification settings
+    notification:
+      appriseUrls: ''
+      onNewComment: false
+      onPageSubmitted: false
+      onPageApproved: false
+      onPageRejected: false
     nav:
       mode: 'MIXED'
     theming:

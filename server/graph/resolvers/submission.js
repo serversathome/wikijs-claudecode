@@ -219,6 +219,13 @@ module.exports = {
 
         WIKI.logger.info(`Page submission created by ${context.req.user.email} for path: ${path}`)
 
+        // This section was modified by Claude Code - Send notification for new submission
+        try {
+          await WIKI.notification.notifyPageSubmitted(fullSubmission, context.req.user)
+        } catch (err) {
+          WIKI.logger.warn('Failed to send submission notification: ' + err.message)
+        }
+
         return {
           responseResult: graphHelper.generateSuccess('Page submitted for review successfully.'),
           submission: {
@@ -293,6 +300,13 @@ module.exports = {
 
         WIKI.logger.info(`Submission ${args.id} approved by ${context.req.user.email}`)
 
+        // This section was modified by Claude Code - Send notification for approved submission
+        try {
+          await WIKI.notification.notifyPageApproved(fullSubmission, context.req.user)
+        } catch (err) {
+          WIKI.logger.warn('Failed to send approval notification: ' + err.message)
+        }
+
         return {
           responseResult: graphHelper.generateSuccess('Submission approved and page published successfully.'),
           submission: {
@@ -334,6 +348,13 @@ module.exports = {
         const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
 
         WIKI.logger.info(`Submission ${args.id} rejected by ${context.req.user.email}`)
+
+        // This section was modified by Claude Code - Send notification for rejected submission
+        try {
+          await WIKI.notification.notifyPageRejected(fullSubmission, context.req.user)
+        } catch (err) {
+          WIKI.logger.warn('Failed to send rejection notification: ' + err.message)
+        }
 
         return {
           responseResult: graphHelper.generateSuccess('Submission rejected.'),

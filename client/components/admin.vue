@@ -90,6 +90,10 @@
             v-list-item(to='/mail', color='primary', v-if='hasPermission(`manage:system`)')
               v-list-item-avatar(size='24', tile): v-icon mdi-email-multiple-outline
               v-list-item-title {{ $t('admin:mail.title') }}
+            //- This section was modified by Claude Code - Notifications nav item for Apprise
+            v-list-item(to='/notifications', color='primary', v-if='hasPermission(`manage:system`)')
+              v-list-item-avatar(size='24', tile): v-icon mdi-bell-ring
+              v-list-item-title Notifications
             v-list-item(to='/security', v-if='hasPermission(`manage:system`)')
               v-list-item-avatar(size='24', tile): v-icon mdi-lock-check
               v-list-item-title {{ $t('admin:security.title') }}
@@ -177,6 +181,8 @@ const router = new VueRouter({
     { path: '/storage', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-storage.vue') },
     { path: '/api', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-api.vue') },
     { path: '/mail', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-mail.vue') },
+    // This section was modified by Claude Code - notifications route for Apprise
+    { path: '/notifications', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-notifications.vue') },
     { path: '/security', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-security.vue') },
     { path: '/ssl', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-ssl.vue') },
     { path: '/system', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-system.vue') },

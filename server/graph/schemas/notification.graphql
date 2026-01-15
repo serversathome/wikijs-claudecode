@@ -1,0 +1,48 @@
+# ===============================================
+# NOTIFICATION
+# This file was created by Claude Code
+# ===============================================
+
+extend type Query {
+  notification: NotificationQuery
+}
+
+extend type Mutation {
+  notification: NotificationMutation
+}
+
+# -----------------------------------------------
+# QUERIES
+# -----------------------------------------------
+
+type NotificationQuery {
+  config: NotificationConfig @auth(requires: ["manage:system"])
+}
+
+# -----------------------------------------------
+# MUTATIONS
+# -----------------------------------------------
+
+type NotificationMutation {
+  sendTest: DefaultResponse @auth(requires: ["manage:system"])
+
+  updateConfig(
+    appriseUrls: String!
+    onNewComment: Boolean!
+    onPageSubmitted: Boolean!
+    onPageApproved: Boolean!
+    onPageRejected: Boolean!
+  ): DefaultResponse @auth(requires: ["manage:system"])
+}
+
+# -----------------------------------------------
+# TYPES
+# -----------------------------------------------
+
+type NotificationConfig {
+  appriseUrls: String
+  onNewComment: Boolean
+  onPageSubmitted: Boolean
+  onPageApproved: Boolean
+  onPageRejected: Boolean
+}

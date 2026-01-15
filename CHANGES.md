@@ -9,6 +9,7 @@ This document lists all modifications made to the original Wiki.js codebase.
 | Page Submission Review Workflow | 7 files |
 | Built-in Video Embeds | 2 files |
 | Custom Favicon from Logo | 1 file |
+| Apprise Notifications | 8 files |
 | Docker Development Setup | 2 files |
 | Documentation | 3 files |
 | Bug Fixes & Minor Changes | 8 files |
@@ -1353,7 +1354,152 @@ index 478d2725..bf2944de 100644
 
 ---
 
-### 3. Docker Development Setup
+### 3. Apprise Notifications
+
+Integration with Apprise for push notifications supporting 80+ services (Discord, Slack, Telegram, Email, etc.).
+
+**New Files:**
+- `server/core/notification.js` - Notification service using Apprise CLI
+- `server/graph/schemas/notification.graphql` - GraphQL schema for notification settings
+- `server/graph/resolvers/notification.js` - GraphQL resolvers for notification mutations
+- `client/components/admin/admin-notifications.vue` - Admin UI for notification settings
+
+**Modified Files:**
+- `Dockerfile.dev` - Added Apprise installation
+- `server/app/data.yml` - Added default notification config
+- `server/master.js` - Initialize notification service
+- `client/components/admin.vue` - Added Notifications nav item
+- `server/modules/comments/default/comment.js` - Added notification hook for new comments
+- `server/graph/resolvers/submission.js` - Added notification hooks for submit/approve/reject
+
+**Notification Events:**
+- New comment posted
+- Page submitted for review
+- Page submission approved
+- Page submission rejected
+
+diff --git a/server/core/notification.js b/server/core/notification.js
+new file mode 100644
+--- /dev/null
++++ b/server/core/notification.js
+@@ -0,0 +1,134 @@
++/**
++ * This file was created by Claude Code
++ * Apprise Notification Service for Wiki.js
++ */
++
++const { exec } = require('child_process')
++const { promisify } = require('util')
++const execAsync = promisify(exec)
++const _ = require('lodash')
++
++/* global WIKI */
++
++module.exports = {
++  init() {
++    if (_.get(WIKI.config, 'notification.appriseUrls', '').length > 0) {
++      WIKI.logger.info('Notification service initialized with Apprise')
++    } else {
++      WIKI.logger.info('Notification service initialized (no Apprise URLs configured)')
++    }
++    return this
++  },
++
++  async send(title, body, urls = null) {
++    const appriseUrls = urls || _.get(WIKI.config, 'notification.appriseUrls', '')
++    if (!appriseUrls || appriseUrls.trim().length === 0) {
++      WIKI.logger.debug('Notification skipped: No Apprise URLs configured')
++      return false
++    }
++    try {
++      const safeTitle = title.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
++      const safeBody = body.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
++      const cmd = `apprise -t "${safeTitle}" -b "${safeBody}" ${appriseUrls}`
++      await execAsync(cmd, { timeout: 30000 })
++      WIKI.logger.info(`Notification sent: ${title}`)
++      return true
++    } catch (err) {
++      WIKI.logger.warn(`Failed to send notification: ${err.message}`)
++      return false
++    }
++  },
++
++  // Event-specific notification methods...
++}
+
+diff --git a/server/graph/schemas/notification.graphql b/server/graph/schemas/notification.graphql
+new file mode 100644
+--- /dev/null
++++ b/server/graph/schemas/notification.graphql
+@@ -0,0 +1,49 @@
++# ===============================================
++# NOTIFICATION
++# This file was created by Claude Code
++# ===============================================
++
++extend type Query {
++  notification: NotificationQuery
++}
++
++extend type Mutation {
++  notification: NotificationMutation
++}
++
++type NotificationQuery {
++  config: NotificationConfig @auth(requires: ["manage:system"])
++}
++
++type NotificationMutation {
++  sendTest: DefaultResponse @auth(requires: ["manage:system"])
++  updateConfig(
++    appriseUrls: String!
++    onNewComment: Boolean!
++    onPageSubmitted: Boolean!
++    onPageApproved: Boolean!
++    onPageRejected: Boolean!
++  ): DefaultResponse @auth(requires: ["manage:system"])
++}
++
++type NotificationConfig {
++  appriseUrls: String
++  onNewComment: Boolean
++  onPageSubmitted: Boolean
++  onPageApproved: Boolean
++  onPageRejected: Boolean
++}
+
+diff --git a/client/components/admin/admin-notifications.vue b/client/components/admin/admin-notifications.vue
+new file mode 100644
+--- /dev/null
++++ b/client/components/admin/admin-notifications.vue
+(Admin UI with Apprise URL config, toggle switches for events, and test button)
+
+diff --git a/server/modules/comments/default/comment.js b/server/modules/comments/default/comment.js
+--- a/server/modules/comments/default/comment.js
++++ b/server/modules/comments/default/comment.js
+@@ -118,6 +118,14 @@ module.exports = {
+     // -> Save Comment to DB
+     const cm = await WIKI.models.comments.query().insert(newComment)
+
++    // This section was modified by Claude Code - Send notification for new comment
++    try {
++      await WIKI.notification.notifyNewComment(page, user)
++    } catch (err) {
++      WIKI.logger.warn('Failed to send comment notification: ' + err.message)
++    }
++
+     // -> Return Comment ID
+     return cm.id
+   },
+
+diff --git a/server/graph/resolvers/submission.js b/server/graph/resolvers/submission.js
+--- a/server/graph/resolvers/submission.js
++++ b/server/graph/resolvers/submission.js
+(Added notification hooks for submit, approve, and reject mutations)
+
+---
+
+### 4. Docker Development Setup
 
 **New Files:**
 - `Dockerfile.dev` - Development Dockerfile
