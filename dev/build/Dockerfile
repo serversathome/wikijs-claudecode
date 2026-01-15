@@ -28,7 +28,9 @@ RUN yarn patch-package
 FROM node:24-alpine
 LABEL maintainer="requarks.io"
 
-RUN apk add bash curl git openssh gnupg sqlite --no-cache && \
+# This section was modified by Claude Code - Added python3 and apprise for notifications
+RUN apk add bash curl git openssh gnupg sqlite python3 py3-pip --no-cache && \
+    pip3 install --break-system-packages apprise && \
     mkdir -p /wiki && \
     mkdir -p /logs && \
     mkdir -p /wiki/data/content && \
