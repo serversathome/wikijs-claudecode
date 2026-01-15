@@ -1,5 +1,27 @@
 <div align="center">
 
+> [!CAUTION]
+> ## AI-Generated Code Warning
+>
+> **All code modifications in this fork were made using [Claude Code](https://claude.ai/claude-code) (AI).**
+>
+> I am not a developer and cannot verify the safety or correctness of any AI-generated code changes. **Use at your own risk.**
+>
+> ### Before using this fork:
+> - Review the **[CHANGES.md](CHANGES.md)** file for a complete diff of all modifications
+> - Modified code sections are marked with comments containing:
+>   - `This section was modified by Claude Code` (for edited code)
+>   - `This file was created by Claude Code` (for new files)
+> - Search the codebase for `Claude Code` to find all AI-modified sections
+>
+> **You are responsible for auditing the code before deploying to production.**
+
+</div>
+
+---
+
+<div align="center">
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://static.requarks.io/logo/wikijs-full-darktheme.svg">
   <img alt="Wiki.js" src="https://static.requarks.io/logo/wikijs-full.svg" width="600">
