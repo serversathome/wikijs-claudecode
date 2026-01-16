@@ -5,11 +5,16 @@ const _ = require('lodash')
 module.exports = async (pageId) => {
   WIKI.logger.info(`Rebuilding page tree...`)
 
+  // Check if running as worker (no existing DB connection) or in main process
+  const isWorker = !WIKI.models || !WIKI.models.knex
+
   try {
-    WIKI.models = require('../core/db').init()
-    await WIKI.models.onReady
-    await WIKI.configSvc.loadFromDb()
-    await WIKI.configSvc.applyFlags()
+    if (isWorker) {
+      WIKI.models = require('../core/db').init()
+      await WIKI.models.onReady
+      await WIKI.configSvc.loadFromDb()
+      await WIKI.configSvc.applyFlags()
+    }
 
     const pages = await WIKI.models.pages.query().select('id', 'path', 'localeCode', 'title', 'isPrivate', 'privateNS').orderBy(['localeCode', 'path'])
     let tree = []
@@ -69,7 +74,9 @@ module.exports = async (pageId) => {
       }
     }
 
-    await WIKI.models.knex.destroy()
+    if (isWorker) {
+      await WIKI.models.knex.destroy()
+    }
 
     WIKI.logger.info(`Rebuilding page tree: [ COMPLETED ]`)
   } catch (err) {

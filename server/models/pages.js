@@ -923,7 +923,7 @@ module.exports = class Page extends Model {
     const rebuildJob = await WIKI.scheduler.registerJob({
       name: 'rebuild-tree',
       immediate: true,
-      worker: true
+      worker: false
     })
     return rebuildJob.finished
   }
@@ -938,7 +938,7 @@ module.exports = class Page extends Model {
     const renderJob = await WIKI.scheduler.registerJob({
       name: 'render-page',
       immediate: true,
-      worker: true
+      worker: false
     }, page.id)
     return renderJob.finished
   }

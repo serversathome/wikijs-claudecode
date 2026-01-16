@@ -6,11 +6,16 @@ const cheerio = require('cheerio')
 module.exports = async (pageId) => {
   WIKI.logger.info(`Rendering page ID ${pageId}...`)
 
+  // Check if running as worker (no existing DB connection) or in main process
+  const isWorker = !WIKI.models || !WIKI.models.knex
+
   try {
-    WIKI.models = require('../core/db').init()
-    await WIKI.models.onReady
-    await WIKI.configSvc.loadFromDb()
-    await WIKI.configSvc.applyFlags()
+    if (isWorker) {
+      WIKI.models = require('../core/db').init()
+      await WIKI.models.onReady
+      await WIKI.configSvc.loadFromDb()
+      await WIKI.configSvc.applyFlags()
+    }
 
     const page = await WIKI.models.pages.getPageFromDb(pageId)
     if (!page) {
@@ -23,8 +28,11 @@ module.exports = async (pageId) => {
     let output = page.content
 
     if (_.isEmpty(page.content)) {
-      await WIKI.models.knex.destroy()
+      if (isWorker) {
+        await WIKI.models.knex.destroy()
+      }
       WIKI.logger.warn(`Failed to render page ID ${pageId} because content was empty: [ FAILED ]`)
+      return
     }
 
     for (let core of pipeline) {
@@ -85,7 +93,9 @@ module.exports = async (pageId) => {
       toc: JSON.stringify(toc.root)
     })
 
-    await WIKI.models.knex.destroy()
+    if (isWorker) {
+      await WIKI.models.knex.destroy()
+    }
 
     WIKI.logger.info(`Rendering page ID ${pageId}: [ COMPLETED ]`)
   } catch (err) {
