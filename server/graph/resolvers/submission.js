@@ -194,26 +194,61 @@ module.exports = {
           scriptJs = args.scriptJs || ''
         }
 
-        // Create submission
-        const submission = await WIKI.models.pageSubmissions.query().insert({
-          pageId: args.pageId || null,
-          submitterId: context.req.user.id,
-          path: path,
-          hash: pageHelper.generateHash({ path: path, locale: args.locale, privateNS: args.isPrivate ? 'TODO' : '' }),
-          title: args.title,
-          description: args.description,
-          content: args.content,
-          contentType: _.get(_.find(WIKI.data.editors, ['key', args.editor]), 'contentType', 'text'),
-          editorKey: args.editor,
-          localeCode: args.locale,
-          isPrivate: args.isPrivate,
-          extra: JSON.stringify({
-            js: scriptJs,
-            css: scriptCss
-          }),
-          tags: JSON.stringify(args.tags || []),
-          status: 'pending'
-        })
+        // Check for existing submission by path/locale/user to prevent duplicates
+        let existingSubmission = await WIKI.models.pageSubmissions.query()
+          .where('path', path)
+          .where('localeCode', args.locale)
+          .where('submitterId', context.req.user.id)
+          .whereIn('status', ['draft', 'pending', 'rejected'])
+          .first()
+
+        let submission
+        if (existingSubmission) {
+          // Update existing submission and set to pending
+          await WIKI.models.pageSubmissions.query().findById(existingSubmission.id).patch({
+            pageId: args.pageId || existingSubmission.pageId || null,
+            path: path,
+            hash: pageHelper.generateHash({ path: path, locale: args.locale, privateNS: args.isPrivate ? 'TODO' : '' }),
+            title: args.title,
+            description: args.description,
+            content: args.content,
+            contentType: _.get(_.find(WIKI.data.editors, ['key', args.editor]), 'contentType', 'text'),
+            editorKey: args.editor,
+            localeCode: args.locale,
+            isPrivate: args.isPrivate,
+            extra: JSON.stringify({
+              js: scriptJs,
+              css: scriptCss
+            }),
+            tags: JSON.stringify(args.tags || []),
+            status: 'pending',
+            reviewerId: null,
+            reviewComment: null,
+            reviewedAt: null
+          })
+          submission = existingSubmission
+        } else {
+          // Create new submission
+          submission = await WIKI.models.pageSubmissions.query().insert({
+            pageId: args.pageId || null,
+            submitterId: context.req.user.id,
+            path: path,
+            hash: pageHelper.generateHash({ path: path, locale: args.locale, privateNS: args.isPrivate ? 'TODO' : '' }),
+            title: args.title,
+            description: args.description,
+            content: args.content,
+            contentType: _.get(_.find(WIKI.data.editors, ['key', args.editor]), 'contentType', 'text'),
+            editorKey: args.editor,
+            localeCode: args.locale,
+            isPrivate: args.isPrivate,
+            extra: JSON.stringify({
+              js: scriptJs,
+              css: scriptCss
+            }),
+            tags: JSON.stringify(args.tags || []),
+            status: 'pending'
+          })
+        }
 
         const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(submission.id)
 
@@ -517,24 +552,36 @@ module.exports = {
         }
 
         let submission
+        let existingSubmission = null
 
+        // First, check if we have an ID passed in
         if (args.id) {
-          // Update existing draft
-          const existingSubmission = await WIKI.models.pageSubmissions.query().findById(args.id)
-          if (!existingSubmission) {
-            throw new Error('Draft not found')
-          }
+          existingSubmission = await WIKI.models.pageSubmissions.query().findById(args.id)
+        }
 
+        // If no ID or not found, check for existing submission by path/locale/user
+        // This prevents duplicate submissions when editing from the page editor
+        if (!existingSubmission) {
+          existingSubmission = await WIKI.models.pageSubmissions.query()
+            .where('path', path)
+            .where('localeCode', args.locale)
+            .where('submitterId', context.req.user.id)
+            .whereIn('status', ['draft', 'pending', 'rejected'])
+            .first()
+        }
+
+        if (existingSubmission) {
+          // Update existing submission
           if (existingSubmission.submitterId !== context.req.user.id) {
             throw new Error('You can only edit your own drafts')
           }
 
-          if (existingSubmission.status !== 'draft' && existingSubmission.status !== 'rejected') {
-            throw new Error('You can only edit draft or rejected submissions')
+          if (existingSubmission.status !== 'draft' && existingSubmission.status !== 'rejected' && existingSubmission.status !== 'pending') {
+            throw new Error('You can only edit draft, pending, or rejected submissions')
           }
 
-          await WIKI.models.pageSubmissions.query().findById(args.id).patch({
-            pageId: args.pageId || null,
+          await WIKI.models.pageSubmissions.query().findById(existingSubmission.id).patch({
+            pageId: args.pageId || existingSubmission.pageId || null,
             path: path,
             hash: pageHelper.generateHash({ path: path, locale: args.locale, privateNS: args.isPrivate ? 'TODO' : '' }),
             title: args.title,
@@ -552,7 +599,7 @@ module.exports = {
             status: 'draft'
           })
 
-          submission = await WIKI.models.pageSubmissions.getSubmission(args.id)
+          submission = await WIKI.models.pageSubmissions.getSubmission(existingSubmission.id)
         } else {
           // Create new draft
           const newSubmission = await WIKI.models.pageSubmissions.query().insert({
