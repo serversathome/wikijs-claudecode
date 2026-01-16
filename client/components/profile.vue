@@ -26,6 +26,12 @@
         //-   v-list-item-content
         //-     v-list-item-title {{$t('profile:comments.title')}}
         //-     v-list-item-subtitle.caption.grey--text.text--lighten-1 Coming soon
+        v-divider.my-2
+        //- This was added by Claude Code - Exit button
+        v-list-item(href='/', color='red')
+          v-list-item-action: v-icon(color='red') mdi-exit-to-app
+          v-list-item-content
+            v-list-item-title.red--text {{$t('common:actions.exit')}}
 
     v-content(:class='$vuetify.theme.dark ? "grey darken-4" : "grey lighten-5"')
       transition(name='profile-router')

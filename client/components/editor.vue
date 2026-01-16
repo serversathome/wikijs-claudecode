@@ -225,9 +225,9 @@ export default {
       // Check if user has manage:pages or review:pages permission (can publish directly)
       // Otherwise they need to submit for review
       const perms = this.$store.get('page/effectivePermissions')
-      // If permissions aren't loaded yet, default to allowing publish
+      // If permissions aren't loaded yet, default to NOT allowing publish (show review buttons)
       if (!perms || typeof perms !== 'object') {
-        return true
+        return false
       }
       // Check for manage or review permissions
       return (
