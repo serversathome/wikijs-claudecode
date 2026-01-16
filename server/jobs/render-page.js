@@ -8,6 +8,7 @@ module.exports = async (pageId) => {
 
   try {
     WIKI.models = require('../core/db').init()
+    await WIKI.models.onReady
     await WIKI.configSvc.loadFromDb()
     await WIKI.configSvc.applyFlags()
 
