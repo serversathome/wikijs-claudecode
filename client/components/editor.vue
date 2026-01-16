@@ -347,6 +347,7 @@ export default {
                       title
                       description
                       tags
+                      editorKey
                     }
                   }
                 }
@@ -364,6 +365,11 @@ export default {
               this.$store.set('page/description', fullDraft.description || '')
               if (fullDraft.tags) {
                 this.$store.set('page/tags', fullDraft.tags)
+              }
+              // Set the editor to match the one used when creating the draft
+              if (fullDraft.editorKey) {
+                this.currentEditor = `editor${_.startCase(fullDraft.editorKey)}`
+                this.$store.set('editor/editorKey', fullDraft.editorKey)
               }
               this.currentDraftId = draft.id
               this.setCurrentSavedState()
