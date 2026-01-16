@@ -16,6 +16,11 @@
           v-list-item-action: v-icon mdi-file-document-outline
           v-list-item-content
             v-list-item-title {{$t('profile:pages.title')}}
+        //- This was added by Claude Code - My Submissions link
+        v-list-item(to='/submissions', color='primary')
+          v-list-item-action: v-icon mdi-file-send-outline
+          v-list-item-content
+            v-list-item-title {{$t('admin:submissions.mySubmissions')}}
         //- v-list-item(to='/comments', disabled)
         //-   v-list-item-action: v-icon(color='grey lighten-1') mdi-message-reply-text
         //-   v-list-item-content
@@ -43,7 +48,9 @@ const router = new VueRouter({
     { path: '/', redirect: '/profile' },
     { path: '/profile', component: () => import(/* webpackChunkName: "profile" */ './profile/profile.vue') },
     { path: '/pages', component: () => import(/* webpackChunkName: "profile" */ './profile/pages.vue') },
-    { path: '/comments', component: () => import(/* webpackChunkName: "profile" */ './profile/comments.vue') }
+    { path: '/comments', component: () => import(/* webpackChunkName: "profile" */ './profile/comments.vue') },
+    // This was added by Claude Code - My Submissions route
+    { path: '/submissions', component: () => import(/* webpackChunkName: "profile" */ './profile/submissions.vue') }
   ]
 })
 

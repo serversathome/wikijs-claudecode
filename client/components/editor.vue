@@ -27,16 +27,25 @@
           v-icon(color='green', :left='$vuetify.breakpoint.lgAndUp') mdi-check
           span.grey--text(v-if='$vuetify.breakpoint.lgAndUp && mode !== `create` && !isDirty') {{ $t('editor:save.saved') }}
           span.white--text(v-else-if='$vuetify.breakpoint.lgAndUp') {{ mode === 'create' ? $t('common:actions.create') : $t('common:actions.save') }}
-        //- This section was modified by Claude Code - Submit for Review button for review workflow
+        //- This section was modified by Claude Code - Submit for Review and Save Draft buttons for review workflow
         v-btn.animated.fadeInDown(
-          v-else
+          v-if='!canPublish'
           text
           color='orange'
           @click.exact='submitForReview'
           :class='{ "is-icon": $vuetify.breakpoint.mdAndDown }'
           )
           v-icon(color='orange', :left='$vuetify.breakpoint.lgAndUp') mdi-file-send-outline
-          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') Submit for Review
+          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') {{ $t('editor:save.submitForReview') }}
+        v-btn.animated.fadeInDown(
+          v-if='!canPublish'
+          text
+          color='grey'
+          @click.exact='saveDraft'
+          :class='{ "is-icon": $vuetify.breakpoint.mdAndDown }'
+          )
+          v-icon(color='grey', :left='$vuetify.breakpoint.lgAndUp') mdi-content-save-outline
+          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') {{ $t('editor:save.saveDraft') }}
         v-btn.animated.fadeInDown.wait-p1s(
           text
           color='blue'
@@ -175,6 +184,7 @@ export default {
       dialogUnsaved: false,
       exitConfirmed: false,
       initContentParsed: '',
+      currentDraftId: null,  // This was added by Claude Code for draft saving
       savedState: {
         description: '',
         isPublished: false,
@@ -592,7 +602,7 @@ export default {
         resp = _.get(resp, 'data.submissions.submit', {})
         if (_.get(resp, 'responseResult.succeeded')) {
           this.$store.commit('showNotification', {
-            message: 'Page submitted for review. An administrator will review your changes.',
+            message: this.$t('editor:save.submitSuccess'),
             style: 'success',
             icon: 'check'
           })
@@ -603,6 +613,98 @@ export default {
           } else {
             window.location.assign(`/${this.$store.get('page/locale')}/${this.$store.get('page/path')}`)
           }
+        } else {
+          throw new Error(_.get(resp, 'responseResult.message'))
+        }
+      } catch (err) {
+        this.$store.commit('showNotification', {
+          message: err.message,
+          style: 'error',
+          icon: 'warning'
+        })
+      }
+      clearTimeout(saveTimeoutHandle)
+      this.isSaving = false
+      this.hideProgressDialog()
+    },
+    // This section was created by Claude Code - saveDraft method for review workflow
+    async saveDraft() {
+      this.showProgressDialog('saving')
+      this.isSaving = true
+
+      const saveTimeoutHandle = setTimeout(() => {
+        throw new Error('Save operation timed out.')
+      }, 30000)
+
+      try {
+        let resp = await this.$apollo.mutate({
+          mutation: gql`
+            mutation (
+              $id: Int
+              $pageId: Int
+              $content: String!
+              $description: String!
+              $editor: String!
+              $isPrivate: Boolean!
+              $locale: String!
+              $path: String!
+              $scriptCss: String
+              $scriptJs: String
+              $tags: [String]!
+              $title: String!
+            ) {
+              submissions {
+                saveDraft(
+                  id: $id
+                  pageId: $pageId
+                  content: $content
+                  description: $description
+                  editor: $editor
+                  isPrivate: $isPrivate
+                  locale: $locale
+                  path: $path
+                  scriptCss: $scriptCss
+                  scriptJs: $scriptJs
+                  tags: $tags
+                  title: $title
+                ) {
+                  responseResult {
+                    succeeded
+                    errorCode
+                    slug
+                    message
+                  }
+                  submission {
+                    id
+                  }
+                }
+              }
+            }
+          `,
+          variables: {
+            id: this.currentDraftId || null,
+            pageId: this.mode === 'create' ? null : this.$store.get('page/id'),
+            content: this.$store.get('editor/content'),
+            description: this.$store.get('page/description'),
+            editor: this.$store.get('editor/editorKey'),
+            locale: this.$store.get('page/locale'),
+            isPrivate: false,
+            path: this.$store.get('page/path'),
+            scriptCss: this.$store.get('page/scriptCss'),
+            scriptJs: this.$store.get('page/scriptJs'),
+            tags: this.$store.get('page/tags'),
+            title: this.$store.get('page/title')
+          }
+        })
+        resp = _.get(resp, 'data.submissions.saveDraft', {})
+        if (_.get(resp, 'responseResult.succeeded')) {
+          // Store the draft ID for future saves
+          this.currentDraftId = _.get(resp, 'submission.id')
+          this.$store.commit('showNotification', {
+            message: this.$t('editor:save.draftSaved'),
+            style: 'success',
+            icon: 'check'
+          })
         } else {
           throw new Error(_.get(resp, 'responseResult.message'))
         }

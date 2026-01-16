@@ -141,6 +141,14 @@ export default {
               warning: false,
               restrictedForSystem: true,
               disabled: false
+            },
+            // This section was modified by Claude Code - review:pages permission for review workflow
+            {
+              permission: 'review:pages',
+              hint: 'Can review and approve/reject page submissions from other users',
+              warning: false,
+              restrictedForSystem: true,
+              disabled: false
             }
           ]
         },

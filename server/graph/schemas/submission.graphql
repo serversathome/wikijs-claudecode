@@ -97,11 +97,43 @@ type SubmissionMutation {
   ): SubmissionResponse @auth(requires: ["review:pages", "manage:system"])
 
   """
-  Delete a submission (only by submitter if still pending)
+  Delete a submission (only by submitter if draft or pending)
   """
   delete(
     id: Int!
   ): DefaultResponse @auth(requires: ["write:pages"])
+
+  """
+  Save a draft (create or update)
+  """
+  saveDraft(
+    id: Int
+    pageId: Int
+    content: String!
+    description: String!
+    editor: String!
+    isPrivate: Boolean!
+    locale: String!
+    path: String!
+    scriptCss: String
+    scriptJs: String
+    tags: [String]!
+    title: String!
+  ): SubmissionResponse @auth(requires: ["write:pages"])
+
+  """
+  Resubmit a rejected or draft submission for review
+  """
+  resubmit(
+    id: Int!
+  ): SubmissionResponse @auth(requires: ["write:pages"])
+
+  """
+  Withdraw (unsubmit) a pending submission back to draft
+  """
+  unsubmit(
+    id: Int!
+  ): SubmissionResponse @auth(requires: ["write:pages"])
 }
 
 # -----------------------------------------------
@@ -156,6 +188,7 @@ type PageSubmissionListItem {
 }
 
 enum SubmissionStatus {
+  draft
   pending
   approved
   rejected

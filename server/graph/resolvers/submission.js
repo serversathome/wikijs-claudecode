@@ -351,9 +351,26 @@ module.exports = {
 
         // This section was modified by Claude Code - Send notification for rejected submission
         try {
-          await WIKI.notification.notifyPageRejected(fullSubmission, context.req.user)
+          await WIKI.notification.notifyPageRejected(fullSubmission, context.req.user, args.comment)
         } catch (err) {
           WIKI.logger.warn('Failed to send rejection notification: ' + err.message)
+        }
+
+        // This section was modified by Claude Code - Send email to submitter about rejection
+        try {
+          const submitter = await WIKI.models.users.query().findById(submission.submitterId)
+          if (submitter && submitter.email) {
+            const reviewerName = context.req.user.name || context.req.user.email
+            const mySubmissionsUrl = `${WIKI.config.host || 'http://localhost'}/my-submissions`
+            await WIKI.mail.send({
+              to: submitter.email,
+              subject: `Your page submission "${fullSubmission.title}" was rejected`,
+              text: `Hello ${submitter.name || 'there'},\n\nYour page submission "${fullSubmission.title}" has been rejected.\n\nReason: ${args.comment}\n\nReviewed by: ${reviewerName}\n\nYou can view your submissions and make edits at: ${mySubmissionsUrl}\n\nThank you.`
+            })
+            WIKI.logger.info(`Rejection email sent to ${submitter.email} for submission ${args.id}`)
+          }
+        } catch (err) {
+          WIKI.logger.warn('Failed to send rejection email to submitter: ' + err.message)
         }
 
         return {
@@ -426,7 +443,7 @@ module.exports = {
           throw new Error('Submission not found')
         }
 
-        // Only allow deletion by submitter if still pending, or by reviewers
+        // Only allow deletion by submitter if draft or pending, or by reviewers
         const isSubmitter = submission.submitterId === context.req.user.id
         const canReview = WIKI.auth.checkAccess(context.req.user, ['review:pages', 'manage:system'])
 
@@ -434,8 +451,9 @@ module.exports = {
           throw new Error('You do not have permission to delete this submission')
         }
 
-        if (isSubmitter && !canReview && submission.status !== 'pending') {
-          throw new Error('You can only delete your own pending submissions')
+        // This section was modified by Claude Code - Allow deletion of drafts
+        if (isSubmitter && !canReview && submission.status !== 'pending' && submission.status !== 'draft') {
+          throw new Error('You can only delete your own draft or pending submissions')
         }
 
         await WIKI.models.pageSubmissions.query().deleteById(args.id)
@@ -444,6 +462,220 @@ module.exports = {
 
         return {
           responseResult: graphHelper.generateSuccess('Submission deleted successfully.')
+        }
+      } catch (err) {
+        return graphHelper.generateError(err)
+      }
+    },
+
+    /**
+     * SAVE DRAFT - This section was created by Claude Code
+     * Save a submission as draft (create or update)
+     */
+    async saveDraft(obj, args, context) {
+      try {
+        // Validate path
+        if (args.path.includes('.') || args.path.includes(' ') || args.path.includes('\\') || args.path.includes('//')) {
+          throw new WIKI.Error.PageIllegalPath()
+        }
+
+        // Remove trailing/leading slashes
+        let path = args.path
+        if (path.endsWith('/')) {
+          path = path.slice(0, -1)
+        }
+        if (path.startsWith('/')) {
+          path = path.slice(1)
+        }
+
+        // Check for page access
+        if (!WIKI.auth.checkAccess(context.req.user, ['write:pages'], {
+          locale: args.locale,
+          path: path
+        })) {
+          throw new WIKI.Error.PageUpdateForbidden()
+        }
+
+        // Format CSS Scripts
+        let scriptCss = ''
+        if (WIKI.auth.checkAccess(context.req.user, ['write:styles'], {
+          locale: args.locale,
+          path: path
+        })) {
+          if (!_.isEmpty(args.scriptCss)) {
+            scriptCss = new CleanCSS({ inline: false }).minify(args.scriptCss).styles
+          }
+        }
+
+        // Format JS Scripts
+        let scriptJs = ''
+        if (WIKI.auth.checkAccess(context.req.user, ['write:scripts'], {
+          locale: args.locale,
+          path: path
+        })) {
+          scriptJs = args.scriptJs || ''
+        }
+
+        let submission
+
+        if (args.id) {
+          // Update existing draft
+          const existingSubmission = await WIKI.models.pageSubmissions.query().findById(args.id)
+          if (!existingSubmission) {
+            throw new Error('Draft not found')
+          }
+
+          if (existingSubmission.submitterId !== context.req.user.id) {
+            throw new Error('You can only edit your own drafts')
+          }
+
+          if (existingSubmission.status !== 'draft' && existingSubmission.status !== 'rejected') {
+            throw new Error('You can only edit draft or rejected submissions')
+          }
+
+          await WIKI.models.pageSubmissions.query().findById(args.id).patch({
+            pageId: args.pageId || null,
+            path: path,
+            hash: pageHelper.generateHash({ path: path, locale: args.locale, privateNS: args.isPrivate ? 'TODO' : '' }),
+            title: args.title,
+            description: args.description,
+            content: args.content,
+            contentType: _.get(_.find(WIKI.data.editors, ['key', args.editor]), 'contentType', 'text'),
+            editorKey: args.editor,
+            localeCode: args.locale,
+            isPrivate: args.isPrivate,
+            extra: JSON.stringify({
+              js: scriptJs,
+              css: scriptCss
+            }),
+            tags: JSON.stringify(args.tags || []),
+            status: 'draft'
+          })
+
+          submission = await WIKI.models.pageSubmissions.getSubmission(args.id)
+        } else {
+          // Create new draft
+          const newSubmission = await WIKI.models.pageSubmissions.query().insert({
+            pageId: args.pageId || null,
+            submitterId: context.req.user.id,
+            path: path,
+            hash: pageHelper.generateHash({ path: path, locale: args.locale, privateNS: args.isPrivate ? 'TODO' : '' }),
+            title: args.title,
+            description: args.description,
+            content: args.content,
+            contentType: _.get(_.find(WIKI.data.editors, ['key', args.editor]), 'contentType', 'text'),
+            editorKey: args.editor,
+            localeCode: args.locale,
+            isPrivate: args.isPrivate,
+            extra: JSON.stringify({
+              js: scriptJs,
+              css: scriptCss
+            }),
+            tags: JSON.stringify(args.tags || []),
+            status: 'draft'
+          })
+
+          submission = await WIKI.models.pageSubmissions.getSubmission(newSubmission.id)
+        }
+
+        WIKI.logger.info(`Draft saved by ${context.req.user.email} for path: ${path}`)
+
+        return {
+          responseResult: graphHelper.generateSuccess('Draft saved successfully.'),
+          submission: {
+            ...submission,
+            tags: submission.tags ? JSON.parse(submission.tags) : []
+          }
+        }
+      } catch (err) {
+        return graphHelper.generateError(err)
+      }
+    },
+
+    /**
+     * RESUBMIT - This section was created by Claude Code
+     * Resubmit a draft or rejected submission for review
+     */
+    async resubmit(obj, args, context) {
+      try {
+        const submission = await WIKI.models.pageSubmissions.query().findById(args.id)
+        if (!submission) {
+          throw new Error('Submission not found')
+        }
+
+        if (submission.submitterId !== context.req.user.id) {
+          throw new Error('You can only resubmit your own submissions')
+        }
+
+        if (submission.status !== 'draft' && submission.status !== 'rejected') {
+          throw new Error('You can only resubmit draft or rejected submissions')
+        }
+
+        // Update submission status to pending
+        await WIKI.models.pageSubmissions.query().findById(args.id).patch({
+          status: 'pending',
+          reviewerId: null,
+          reviewComment: null,
+          reviewedAt: null
+        })
+
+        const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
+
+        WIKI.logger.info(`Submission ${args.id} resubmitted by ${context.req.user.email}`)
+
+        // Send notification for resubmission
+        try {
+          await WIKI.notification.notifyPageSubmitted(fullSubmission, context.req.user)
+        } catch (err) {
+          WIKI.logger.warn('Failed to send resubmission notification: ' + err.message)
+        }
+
+        return {
+          responseResult: graphHelper.generateSuccess('Submission resubmitted for review.'),
+          submission: {
+            ...fullSubmission,
+            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+          }
+        }
+      } catch (err) {
+        return graphHelper.generateError(err)
+      }
+    },
+
+    /**
+     * UNSUBMIT - This section was created by Claude Code
+     * Withdraw a pending submission back to draft
+     */
+    async unsubmit(obj, args, context) {
+      try {
+        const submission = await WIKI.models.pageSubmissions.query().findById(args.id)
+        if (!submission) {
+          throw new Error('Submission not found')
+        }
+
+        if (submission.submitterId !== context.req.user.id) {
+          throw new Error('You can only withdraw your own submissions')
+        }
+
+        if (submission.status !== 'pending') {
+          throw new Error('You can only withdraw pending submissions')
+        }
+
+        // Update submission status to draft
+        await WIKI.models.pageSubmissions.query().findById(args.id).patch({
+          status: 'draft'
+        })
+
+        const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
+
+        WIKI.logger.info(`Submission ${args.id} withdrawn by ${context.req.user.email}`)
+
+        return {
+          responseResult: graphHelper.generateSuccess('Submission withdrawn. It is now a draft.'),
+          submission: {
+            ...fullSubmission,
+            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+          }
         }
       } catch (err) {
         return graphHelper.generateError(err)

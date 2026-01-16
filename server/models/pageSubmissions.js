@@ -31,7 +31,7 @@ module.exports = class PageSubmission extends Model {
         isPrivate: { type: 'boolean' },
         extra: { type: 'string' },
         tags: { type: 'string' },
-        status: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+        status: { type: 'string', enum: ['draft', 'pending', 'approved', 'rejected'] },
         reviewerId: { type: ['integer', 'null'] },
         reviewComment: { type: 'string' },
         createdAt: { type: 'string' },

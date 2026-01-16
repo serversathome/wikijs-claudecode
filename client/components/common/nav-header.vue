@@ -226,6 +226,11 @@
                 v-list-item-action: v-icon(color='blue-grey') mdi-face-profile
                 v-list-item-content
                   v-list-item-title(:class='$vuetify.theme.dark ? `blue-grey--text text--lighten-3` : `blue-grey--text`') {{$t('common:header.profile')}}
+              //- This was added by Claude Code - My Submissions link
+              v-list-item(href='/p/submissions')
+                v-list-item-action: v-icon(color='orange') mdi-file-send-outline
+                v-list-item-content
+                  v-list-item-title(:class='$vuetify.theme.dark ? `orange--text text--lighten-3` : `orange--text`') {{$t('admin:submissions.mySubmissions')}}
               v-list-item(@click='logout')
                 v-list-item-action: v-icon(color='red') mdi-logout
                 v-list-item-title.red--text {{$t('common:header.logout')}}

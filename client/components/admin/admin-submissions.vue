@@ -6,8 +6,8 @@
         .admin-header
           img.animated.fadeInUp(src='/_assets/svg/icon-file.svg', alt='Submissions', style='width: 80px;')
           .admin-header-title
-            .headline.orange--text.text--darken-2.animated.fadeInLeft Page Submissions
-            .subtitle-1.grey--text.animated.fadeInLeft.wait-p2s Review pending page submissions from editors
+            .headline.orange--text.text--darken-2.animated.fadeInLeft {{ $t('admin:submissions.title') }}
+            .subtitle-1.grey--text.animated.fadeInLeft.wait-p2s {{ $t('admin:submissions.subtitle') }}
           v-spacer
           v-chip.mr-3.animated.fadeInDown(
             v-if='pendingCount > 0'
@@ -70,7 +70,7 @@
                         @click='openEditDialog(item)'
                       )
                         v-icon(small) mdi-pencil
-                    span Edit
+                    span {{ $t('admin:submissions.edit') }}
                   v-tooltip(bottom, v-if='item.status === "pending"')
                     template(v-slot:activator='{ on }')
                       v-btn.mr-1(
@@ -81,7 +81,7 @@
                         @click='openApproveDialog(item)'
                       )
                         v-icon(small) mdi-check
-                    span Approve
+                    span {{ $t('admin:submissions.approve') }}
                   v-tooltip(bottom, v-if='item.status === "pending"')
                     template(v-slot:activator='{ on }')
                       v-btn.mr-1(
@@ -92,7 +92,7 @@
                         @click='openRejectDialog(item)'
                       )
                         v-icon(small) mdi-close
-                    span Reject
+                    span {{ $t('admin:submissions.reject') }}
                   v-tooltip(bottom)
                     template(v-slot:activator='{ on }')
                       v-btn(
@@ -103,9 +103,9 @@
                         @click='viewSubmission(item)'
                       )
                         v-icon(small) mdi-eye
-                    span View Details
+                    span {{ $t('admin:submissions.viewDetails') }}
             template(v-slot:no-data)
-              v-alert.ma-3(icon='mdi-check-circle', :value='true', outlined, color='green') No submissions to review
+              v-alert.ma-3(icon='mdi-check-circle', :value='true', outlined, color='green') {{ $t('admin:submissions.empty') }}
           .text-center.py-2.animated.fadeInDown(v-if='pageTotal > 1')
             v-pagination(v-model='pagination', :length='pageTotal')
 
@@ -114,46 +114,46 @@
       v-card
         v-card-title.headline.green--text
           v-icon.mr-2(color='green') mdi-check-circle
-          | Approve Submission
+          | {{ $t('admin:submissions.approveTitle') }}
         v-card-text
-          p Are you sure you want to approve this submission?
+          p {{ $t('admin:submissions.approveConfirm') }}
           p.font-weight-bold The page "{{ selectedSubmission ? selectedSubmission.title : '' }}" will be published immediately.
         v-card-actions
           v-spacer
-          v-btn(text, @click='approveDialog = false') Cancel
+          v-btn(text, @click='approveDialog = false') {{ $t('common:actions.cancel') }}
           v-btn(color='green', dark, @click='approveSubmission')
             v-icon(left) mdi-check
-            | Approve & Publish
+            | {{ $t('admin:submissions.approve') }}
 
     //- Reject Dialog
     v-dialog(v-model='rejectDialog', max-width='500')
       v-card
         v-card-title.headline.red--text
           v-icon.mr-2(color='red') mdi-close-circle
-          | Reject Submission
+          | {{ $t('admin:submissions.rejectTitle') }}
         v-card-text
-          p Please provide a reason for rejecting this submission. This will be visible to the author.
+          p {{ $t('admin:submissions.rejectReasonHint') }}
           v-textarea(
             v-model='rejectComment'
-            label='Rejection Reason'
-            placeholder='Explain why this submission is being rejected...'
+            :label='$t("admin:submissions.rejectReason")'
+            :placeholder='$t("admin:submissions.rejectReasonHint")'
             outlined
             rows='3'
             :rules='[v => !!v || "A reason is required"]'
           )
         v-card-actions
           v-spacer
-          v-btn(text, @click='rejectDialog = false') Cancel
+          v-btn(text, @click='rejectDialog = false') {{ $t('common:actions.cancel') }}
           v-btn(color='red', dark, @click='rejectSubmission', :disabled='!rejectComment.trim()')
             v-icon(left) mdi-close
-            | Reject
+            | {{ $t('admin:submissions.reject') }}
 
     //- Edit Dialog
     v-dialog(v-model='editDialog', max-width='1200', persistent, scrollable)
       v-card(v-if='selectedSubmission')
         v-toolbar(flat, color='purple', dark)
           v-icon.mr-2 mdi-pencil
-          v-toolbar-title Edit Submission
+          v-toolbar-title {{ $t('admin:submissions.editTitle') }}
           v-spacer
           v-btn(icon, @click='editDialog = false')
             v-icon mdi-close
@@ -194,14 +194,14 @@
                   :style='{ fontFamily: "Roboto Mono, monospace", fontSize: "14px" }'
                 )
         v-card-actions
-          v-btn(text, color='grey', @click='editDialog = false') Cancel
+          v-btn(text, color='grey', @click='editDialog = false') {{ $t('common:actions.cancel') }}
           v-spacer
           v-btn(color='purple', dark, @click='saveEdit', :loading='saving')
             v-icon(left) mdi-content-save
-            | Save Changes
+            | {{ $t('common:actions.save') }}
           v-btn(color='green', dark, @click='saveAndApprove', :loading='saving')
             v-icon(left) mdi-check
-            | Save & Approve
+            | {{ $t('admin:submissions.approve') }}
 
     //- View Content Dialog
     v-dialog(v-model='viewDialog', max-width='1000', scrollable)
@@ -261,7 +261,7 @@
                       pre.submission-source.pa-4 {{ selectedSubmission.contentMarkdown || selectedSubmission.content }}
         v-card-actions
           v-spacer
-          v-btn(text, @click='viewDialog = false') Close
+          v-btn(text, @click='viewDialog = false') {{ $t('common:actions.close') }}
           v-btn(
             v-if='selectedSubmission.status === "pending"'
             color='purple'
@@ -269,7 +269,7 @@
             @click='viewDialog = false; openEditDialog(selectedSubmission)'
           )
             v-icon(left) mdi-pencil
-            | Edit
+            | {{ $t('admin:submissions.edit') }}
           v-btn(
             v-if='selectedSubmission.status === "pending"'
             color='green'
@@ -277,7 +277,7 @@
             @click='viewDialog = false; openApproveDialog(selectedSubmission)'
           )
             v-icon(left) mdi-check
-            | Approve
+            | {{ $t('admin:submissions.approve') }}
           v-btn(
             v-if='selectedSubmission.status === "pending"'
             color='red'
@@ -285,7 +285,7 @@
             @click='viewDialog = false; openRejectDialog(selectedSubmission)'
           )
             v-icon(left) mdi-close
-            | Reject
+            | {{ $t('admin:submissions.reject') }}
 
     notify
 </template>
@@ -314,6 +314,7 @@ export default {
       contentTab: 0,
       statusOptions: [
         { text: 'All Submissions', value: null },
+        { text: 'Drafts', value: 'draft' },
         { text: 'Pending Review', value: 'pending' },
         { text: 'Approved', value: 'approved' },
         { text: 'Rejected', value: 'rejected' }
@@ -532,7 +533,7 @@ export default {
         })
         if (resp.data.submissions.update.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: 'Submission updated successfully!',
+            message: this.$t('admin:submissions.updateSuccess'),
             style: 'success',
             icon: 'check'
           })
@@ -599,7 +600,7 @@ export default {
         })
         if (approveResp.data.submissions.approve.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: 'Submission saved and approved! Page published successfully.',
+            message: this.$t('admin:submissions.saveAndApproveSuccess'),
             style: 'success',
             icon: 'check'
           })
@@ -643,7 +644,7 @@ export default {
         })
         if (resp.data.submissions.approve.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: 'Submission approved and page published successfully!',
+            message: this.$t('admin:submissions.approveSuccess'),
             style: 'success',
             icon: 'check'
           })
@@ -686,7 +687,7 @@ export default {
         })
         if (resp.data.submissions.reject.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: 'Submission rejected.',
+            message: this.$t('admin:submissions.rejectSuccess'),
             style: 'success',
             icon: 'check'
           })
