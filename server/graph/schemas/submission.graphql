@@ -46,6 +46,13 @@ type SubmissionQuery {
     limit: Int
     offset: Int
   ): [PageSubmissionListItem]! @auth(requires: ["write:pages"])
+
+  """
+  Get a single submission owned by the current user (full content)
+  """
+  mySingle(
+    id: Int!
+  ): PageSubmission @auth(requires: ["write:pages"])
 }
 
 # -----------------------------------------------

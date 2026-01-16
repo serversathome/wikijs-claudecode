@@ -297,10 +297,89 @@ export default {
       this.isConflict = false
     })
 
-    // this.$store.set('editor/mode', 'edit')
-    // this.currentEditor = `editorApi`
+    // Check for existing draft submission and load its content
+    this.loadDraftIfExists()
   },
   methods: {
+    async loadDraftIfExists() {
+      // Check if user has a draft/pending/rejected submission for this page
+      // If so, load that content instead of the published page content
+      if (!this.canPublish) {
+        try {
+          const resp = await this.$apollo.query({
+            query: gql`
+              query {
+                submissions {
+                  mySubmissions {
+                    id
+                    pageId
+                    path
+                    title
+                    description
+                    localeCode
+                    status
+                    reviewComment
+                  }
+                }
+              }
+            `,
+            fetchPolicy: 'network-only'
+          })
+          const submissions = _.get(resp, 'data.submissions.mySubmissions', [])
+          // Find a submission matching this page's path and locale
+          const currentPath = this.$store.get('page/path')
+          const currentLocale = this.$store.get('page/locale')
+          const draft = submissions.find(s =>
+            s.path === currentPath &&
+            s.localeCode === currentLocale &&
+            ['draft', 'pending', 'rejected'].includes(s.status)
+          )
+          if (draft) {
+            // Found a draft - fetch its full content
+            const detailResp = await this.$apollo.query({
+              query: gql`
+                query ($id: Int!) {
+                  submissions {
+                    mySingle(id: $id) {
+                      id
+                      content
+                      contentMarkdown
+                      title
+                      description
+                      tags
+                    }
+                  }
+                }
+              `,
+              variables: { id: draft.id },
+              fetchPolicy: 'network-only'
+            })
+            const fullDraft = _.get(detailResp, 'data.submissions.mySingle')
+            if (fullDraft) {
+              // Load draft content into editor
+              const content = fullDraft.contentMarkdown || fullDraft.content
+              this.initContentParsed = content
+              this.$store.set('editor/content', content)
+              this.$store.set('page/title', fullDraft.title)
+              this.$store.set('page/description', fullDraft.description || '')
+              if (fullDraft.tags) {
+                this.$store.set('page/tags', fullDraft.tags)
+              }
+              this.currentDraftId = draft.id
+              this.setCurrentSavedState()
+              this.$store.commit('showNotification', {
+                message: 'Loaded your saved draft',
+                style: 'info',
+                icon: 'edit'
+              })
+            }
+          }
+        } catch (err) {
+          // Silently fail - just use the page content
+          console.warn('Failed to check for draft:', err.message)
+        }
+      }
+    },
     openPropsModal(name) {
       this.dialogProps = true
     },

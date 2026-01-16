@@ -139,6 +139,37 @@ module.exports = {
         ...s,
         localeCode: s.localeCode
       }))
+    },
+
+    /**
+     * GET SINGLE SUBMISSION FOR CURRENT USER (full content)
+     */
+    async mySingle(obj, args, context) {
+      const submission = await WIKI.models.pageSubmissions.getSubmission(args.id)
+      if (!submission) {
+        throw new Error('Submission not found')
+      }
+
+      // Verify the submission belongs to the current user
+      if (submission.submitterId !== context.req.user.id) {
+        throw new Error('You can only view your own submissions')
+      }
+
+      // Convert content to markdown if it's HTML (from WYSIWYG editors)
+      let contentForEdit = submission.content
+      if (submission.contentType === 'html') {
+        try {
+          contentForEdit = htmlToMarkdown(submission.content)
+        } catch (err) {
+          WIKI.logger.warn(`Failed to convert submission ${args.id} content to markdown: ${err.message}`)
+        }
+      }
+
+      return {
+        ...submission,
+        tags: submission.tags ? JSON.parse(submission.tags) : [],
+        contentMarkdown: contentForEdit
+      }
     }
   },
   SubmissionMutation: {
