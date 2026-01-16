@@ -33,10 +33,10 @@ module.exports = class PageSubmission extends Model {
         tags: { type: 'string' },
         status: { type: 'string', enum: ['draft', 'pending', 'approved', 'rejected'] },
         reviewerId: { type: ['integer', 'null'] },
-        reviewComment: { type: 'string' },
+        reviewComment: { type: ['string', 'null'] },
         createdAt: { type: 'string' },
         updatedAt: { type: 'string' },
-        reviewedAt: { type: 'string' }
+        reviewedAt: { type: ['string', 'null'] }
       }
     }
   }
