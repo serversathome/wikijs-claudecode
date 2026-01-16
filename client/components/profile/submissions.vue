@@ -62,7 +62,7 @@
                           @click='editDraft(item)'
                         )
                           v-icon(small) mdi-pencil
-                      span {{ $t('admin:submissions.edit') }}
+                      span {{ $t('admin:submissions.editTooltip') }}
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn.mr-1(
@@ -73,7 +73,7 @@
                           @click='submitDraft(item)'
                         )
                           v-icon(small) mdi-file-send
-                      span {{ $t('admin:submissions.submitDraft') }}
+                      span {{ $t('admin:submissions.submitTooltip') }}
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn(
@@ -84,7 +84,7 @@
                           @click='openDeleteDialog(item)'
                         )
                           v-icon(small) mdi-delete
-                      span {{ $t('admin:submissions.delete') }}
+                      span {{ $t('admin:submissions.deleteTooltip') }}
                   //- Pending actions
                   template(v-if='item.status === "pending"')
                     v-tooltip(bottom)
@@ -97,7 +97,7 @@
                           @click='withdrawSubmission(item)'
                         )
                           v-icon(small) mdi-undo
-                      span {{ $t('admin:submissions.withdraw') }}
+                      span {{ $t('admin:submissions.withdrawTooltip') }}
                   //- Rejected actions
                   template(v-if='item.status === "rejected"')
                     v-tooltip(bottom)
@@ -110,7 +110,7 @@
                           @click='editDraft(item)'
                         )
                           v-icon(small) mdi-pencil
-                      span {{ $t('admin:submissions.edit') }}
+                      span {{ $t('admin:submissions.editTooltip') }}
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn.mr-1(
@@ -121,7 +121,7 @@
                           @click='resubmit(item)'
                         )
                           v-icon(small) mdi-refresh
-                      span {{ $t('admin:submissions.resubmit') }}
+                      span {{ $t('admin:submissions.resubmitTooltip') }}
                   //- View details for all
                   v-tooltip(bottom)
                     template(v-slot:activator='{ on }')
@@ -133,7 +133,7 @@
                         @click='viewSubmission(item)'
                       )
                         v-icon(small) mdi-eye
-                    span {{ $t('admin:submissions.viewDetails') }}
+                    span {{ $t('admin:submissions.viewTooltip') }}
             template(v-slot:no-data)
               v-alert.ma-3(icon='mdi-check-circle', :value='true', outlined, color='grey') {{ $t('admin:submissions.noDrafts') }}
           .text-center.py-2.animated.fadeInDown(v-if='pageTotal > 1')
