@@ -20,7 +20,7 @@ exports.up = async knex => {
     table.boolean('isPrivate').notNullable().defaultTo(false)
     table.text('extra')
     table.text('tags')
-    table.enu('status', ['pending', 'approved', 'rejected']).notNullable().defaultTo('pending')
+    table.enu('status', ['draft', 'pending', 'approved', 'rejected']).notNullable().defaultTo('pending')
     table.integer('reviewerId').unsigned().references('id').inTable('users')
     table.string('reviewComment')
     table.string('createdAt').notNullable()
