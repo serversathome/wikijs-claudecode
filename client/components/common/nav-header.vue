@@ -230,7 +230,7 @@
               v-list-item(href='/p/content')
                 v-list-item-action: v-icon(color='teal') mdi-folder-account-outline
                 v-list-item-content
-                  v-list-item-title(:class='$vuetify.theme.dark ? `teal--text text--lighten-3` : `teal--text`') {{$t('profile:content.title')}}
+                  v-list-item-title(:class='$vuetify.theme.dark ? `teal--text text--lighten-3` : `teal--text`') My Content
               v-list-item(@click='logout')
                 v-list-item-action: v-icon(color='red') mdi-logout
                 v-list-item-title.red--text {{$t('common:header.logout')}}

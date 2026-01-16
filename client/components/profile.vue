@@ -16,7 +16,7 @@
         v-list-item(to='/content', color='primary')
           v-list-item-action: v-icon mdi-folder-account-outline
           v-list-item-content
-            v-list-item-title {{$t('profile:content.title')}}
+            v-list-item-title My Content
         //- v-list-item(to='/comments', disabled)
         //-   v-list-item-action: v-icon(color='grey lighten-1') mdi-message-reply-text
         //-   v-list-item-content

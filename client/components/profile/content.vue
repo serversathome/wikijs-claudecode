@@ -6,26 +6,26 @@
         .profile-header
           img.animated.fadeInUp(src='/_assets/svg/icon-file.svg', alt='My Content', style='width: 80px;')
           .profile-header-title
-            .headline.primary--text.animated.fadeInLeft {{ $t('profile:content.title') }}
-            .subheading.grey--text.animated.fadeInLeft {{ $t('profile:content.subtitle') }}
+            .headline.primary--text.animated.fadeInLeft My Content
+            .subheading.grey--text.animated.fadeInLeft Your published pages, drafts, and pending reviews
           v-spacer
           v-btn.animated.fadeInDown.wait-p1s(color='grey', outlined, @click='refresh', large)
             v-icon.grey--text mdi-refresh
       v-flex(xs12)
         v-card.animated.fadeInUp
           v-tabs(v-model='activeTab', background-color='primary', dark, slider-color='white')
-            v-tab {{ $t('profile:content.tabAll') }}
+            v-tab All
             v-tab
-              span {{ $t('profile:content.tabPublished') }}
+              span Published
               v-chip.ml-2(x-small, v-if='publishedCount > 0') {{ publishedCount }}
             v-tab
-              span {{ $t('profile:content.tabDrafts') }}
+              span Drafts
               v-chip.ml-2(x-small, color='grey', dark, v-if='draftCount > 0') {{ draftCount }}
             v-tab
-              span {{ $t('profile:content.tabPending') }}
+              span Pending Review
               v-chip.ml-2(x-small, color='orange', dark, v-if='pendingCount > 0') {{ pendingCount }}
             v-tab
-              span {{ $t('profile:content.tabRejected') }}
+              span Rejected
               v-chip.ml-2(x-small, color='red', dark, v-if='rejectedCount > 0') {{ rejectedCount }}
 
           v-divider
@@ -67,7 +67,7 @@
                           @click.stop='goToPage(item)'
                         )
                           v-icon(small) mdi-eye
-                      span {{ $t('profile:content.viewPage') }}
+                      span View this page
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn(
@@ -78,7 +78,7 @@
                           @click.stop='editPage(item)'
                         )
                           v-icon(small) mdi-pencil
-                      span {{ $t('profile:content.editPage') }}
+                      span Edit this page
 
                   //- Draft actions
                   template(v-if='item.status === "draft"')
@@ -92,7 +92,7 @@
                           @click='editDraft(item)'
                         )
                           v-icon(small) mdi-pencil
-                      span {{ $t('admin:submissions.editTooltip') }}
+                      span Edit this draft
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn.mr-1(
@@ -103,7 +103,7 @@
                           @click='submitDraft(item)'
                         )
                           v-icon(small) mdi-file-send
-                      span {{ $t('admin:submissions.submitTooltip') }}
+                      span Submit for admin review
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn(
@@ -114,7 +114,7 @@
                           @click='openDeleteDialog(item)'
                         )
                           v-icon(small) mdi-delete
-                      span {{ $t('admin:submissions.deleteTooltip') }}
+                      span Delete this draft
 
                   //- Pending actions
                   template(v-if='item.status === "pending"')
@@ -128,7 +128,7 @@
                           @click='withdrawSubmission(item)'
                         )
                           v-icon(small) mdi-undo
-                      span {{ $t('admin:submissions.withdrawTooltip') }}
+                      span Withdraw from review
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn(
@@ -139,7 +139,7 @@
                           @click='viewSubmission(item)'
                         )
                           v-icon(small) mdi-eye
-                      span {{ $t('admin:submissions.viewTooltip') }}
+                      span View details
 
                   //- Rejected actions
                   template(v-if='item.status === "rejected"')
@@ -153,7 +153,7 @@
                           @click='editDraft(item)'
                         )
                           v-icon(small) mdi-pencil
-                      span {{ $t('admin:submissions.editTooltip') }}
+                      span Edit and revise
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn.mr-1(
@@ -164,7 +164,7 @@
                           @click='resubmit(item)'
                         )
                           v-icon(small) mdi-refresh
-                      span {{ $t('admin:submissions.resubmitTooltip') }}
+                      span Resubmit for review
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn(
@@ -175,10 +175,10 @@
                           @click='viewSubmission(item)'
                         )
                           v-icon(small) mdi-eye
-                      span {{ $t('admin:submissions.viewTooltip') }}
+                      span View rejection reason
 
             template(v-slot:no-data)
-              v-alert.ma-3(icon='mdi-folder-open-outline', :value='true', outlined, color='grey') {{ $t('profile:content.empty') }}
+              v-alert.ma-3(icon='mdi-folder-open-outline', :value='true', outlined, color='grey') No content found
 
           .text-center.py-2.animated.fadeInDown(v-if='pageTotal > 1')
             v-pagination(v-model='pagination', :length='pageTotal')
@@ -213,23 +213,23 @@
               | {{ selectedItem.reviewComment }}
         v-card-actions
           v-spacer
-          v-btn(text, @click='viewDialog = false') {{ $t('common:actions.close') }}
+          v-btn(text, @click='viewDialog = false') Close
 
     //- Delete Dialog
     v-dialog(v-model='deleteDialog', max-width='400')
       v-card
         v-card-title.headline.red--text
           v-icon.mr-2(color='red') mdi-delete
-          | {{ $t('profile:content.deleteDraft') }}
+          | Delete Draft
         v-card-text
-          p {{ $t('profile:content.deleteConfirm') }}
+          p Are you sure you want to delete this draft?
           p.font-weight-bold "{{ selectedItem ? selectedItem.title : '' }}"
         v-card-actions
           v-spacer
-          v-btn(text, @click='deleteDialog = false') {{ $t('common:actions.cancel') }}
+          v-btn(text, @click='deleteDialog = false') Cancel
           v-btn(color='red', dark, @click='deleteSubmission')
             v-icon(left) mdi-delete
-            | {{ $t('common:actions.delete') }}
+            | Delete
 
     notify
 </template>
@@ -253,10 +253,10 @@ export default {
   computed: {
     headers() {
       return [
-        { text: this.$t('profile:content.headerTitle'), value: 'title' },
-        { text: this.$t('profile:content.headerStatus'), value: 'status', width: 130 },
-        { text: this.$t('profile:content.headerUpdated'), value: 'updatedAt', width: 180 },
-        { text: this.$t('profile:content.headerActions'), value: 'actions', sortable: false, width: 150, align: 'right' }
+        { text: 'Title / Path', value: 'title' },
+        { text: 'Status', value: 'status', width: 130 },
+        { text: 'Last Updated', value: 'updatedAt', width: 180 },
+        { text: 'Actions', value: 'actions', sortable: false, width: 150, align: 'right' }
       ]
     },
     allItems() {
@@ -340,7 +340,6 @@ export default {
                     description
                     localeCode
                     status
-                    reviewComment
                     createdAt
                     updatedAt
                   }
@@ -355,7 +354,7 @@ export default {
         this.submissions = submissionsResp.data.submissions.mySubmissions || []
 
         this.$store.commit('showNotification', {
-          message: this.$t('profile:content.refreshSuccess'),
+          message: 'Content refreshed',
           style: 'success',
           icon: 'cached'
         })
@@ -380,11 +379,11 @@ export default {
     },
     getStatusLabel(status) {
       switch (status) {
-        case 'published': return this.$t('profile:content.statusPublished')
-        case 'draft': return this.$t('admin:submissions.draft')
-        case 'pending': return this.$t('admin:submissions.pending')
-        case 'approved': return this.$t('admin:submissions.approved')
-        case 'rejected': return this.$t('admin:submissions.rejected')
+        case 'published': return 'Published'
+        case 'draft': return 'Draft'
+        case 'pending': return 'Pending'
+        case 'approved': return 'Approved'
+        case 'rejected': return 'Rejected'
         default: return status
       }
     },
@@ -421,7 +420,7 @@ export default {
         })
         if (resp.data.submissions.resubmit.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: this.$t('admin:submissions.resubmitSuccess'),
+            message: 'Submitted for review',
             style: 'success',
             icon: 'check'
           })
@@ -461,7 +460,7 @@ export default {
         })
         if (resp.data.submissions.unsubmit.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: this.$t('admin:submissions.withdrawSuccess'),
+            message: 'Withdrawn from review',
             style: 'success',
             icon: 'check'
           })
@@ -503,7 +502,7 @@ export default {
         })
         if (resp.data.submissions.delete.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: this.$t('admin:submissions.draftDeleted'),
+            message: 'Draft deleted',
             style: 'success',
             icon: 'check'
           })
@@ -560,7 +559,6 @@ export default {
                 description
                 localeCode
                 status
-                reviewComment
                 createdAt
                 updatedAt
               }
