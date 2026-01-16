@@ -31,21 +31,21 @@
         v-btn.animated.fadeInDown(
           v-if='!canPublish'
           text
-          color='orange'
-          @click.exact='submitForReview'
-          :class='{ "is-icon": $vuetify.breakpoint.mdAndDown }'
-          )
-          v-icon(color='orange', :left='$vuetify.breakpoint.lgAndUp') mdi-file-send-outline
-          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') {{ $t('editor:save.submitForReview') }}
-        v-btn.animated.fadeInDown(
-          v-if='!canPublish'
-          text
           color='grey'
           @click.exact='saveDraft'
           :class='{ "is-icon": $vuetify.breakpoint.mdAndDown }'
           )
           v-icon(color='grey', :left='$vuetify.breakpoint.lgAndUp') mdi-content-save-outline
-          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') {{ $t('editor:save.saveDraft') }}
+          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') Save Draft
+        v-btn.animated.fadeInDown(
+          v-if='!canPublish'
+          text
+          color='orange'
+          @click.exact='submitForReview'
+          :class='{ "is-icon": $vuetify.breakpoint.mdAndDown }'
+          )
+          v-icon(color='orange', :left='$vuetify.breakpoint.lgAndUp') mdi-file-send-outline
+          span.white--text(v-if='$vuetify.breakpoint.lgAndUp') Submit
         v-btn.animated.fadeInDown.wait-p1s(
           text
           color='blue'

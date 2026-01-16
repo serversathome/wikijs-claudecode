@@ -13,25 +13,8 @@
             v-icon.grey--text mdi-refresh
       v-flex(xs12)
         v-card.animated.fadeInUp
-          v-tabs(v-model='activeTab', background-color='primary', dark, slider-color='white')
-            v-tab All
-            v-tab
-              span Published
-              v-chip.ml-2(x-small, v-if='publishedCount > 0') {{ publishedCount }}
-            v-tab
-              span Drafts
-              v-chip.ml-2(x-small, color='grey', dark, v-if='draftCount > 0') {{ draftCount }}
-            v-tab
-              span Pending Review
-              v-chip.ml-2(x-small, color='orange', dark, v-if='pendingCount > 0') {{ pendingCount }}
-            v-tab
-              span Rejected
-              v-chip.ml-2(x-small, color='red', dark, v-if='rejectedCount > 0') {{ rejectedCount }}
-
-          v-divider
-
           v-data-table(
-            :items='filteredItems'
+            :items='allItems'
             :headers='headers'
             :page.sync='pagination'
             :items-per-page='15'
@@ -118,6 +101,17 @@
 
                   //- Pending actions
                   template(v-if='item.status === "pending"')
+                    v-tooltip(bottom)
+                      template(v-slot:activator='{ on }')
+                        v-btn.mr-1(
+                          v-on='on'
+                          icon
+                          small
+                          color='purple'
+                          @click='editDraft(item)'
+                        )
+                          v-icon(small) mdi-pencil
+                      span Edit this submission
                     v-tooltip(bottom)
                       template(v-slot:activator='{ on }')
                         v-btn.mr-1(
@@ -240,7 +234,6 @@ import gql from 'graphql-tag'
 export default {
   data() {
     return {
-      activeTab: 0,
       pages: [],
       submissions: [],
       pagination: 1,
@@ -273,30 +266,8 @@ export default {
       }))
       return [...publishedPages, ...submissionItems]
     },
-    filteredItems() {
-      switch (this.activeTab) {
-        case 0: return this.allItems // All
-        case 1: return this.allItems.filter(i => i.status === 'published')
-        case 2: return this.allItems.filter(i => i.status === 'draft')
-        case 3: return this.allItems.filter(i => i.status === 'pending')
-        case 4: return this.allItems.filter(i => i.status === 'rejected')
-        default: return this.allItems
-      }
-    },
-    publishedCount() {
-      return this.pages.length
-    },
-    draftCount() {
-      return this.submissions.filter(s => s.status === 'draft').length
-    },
-    pendingCount() {
-      return this.submissions.filter(s => s.status === 'pending').length
-    },
-    rejectedCount() {
-      return this.submissions.filter(s => s.status === 'rejected').length
-    },
     pageTotal() {
-      return Math.ceil(this.filteredItems.length / 15)
+      return Math.ceil(this.allItems.length / 15)
     }
   },
   methods: {
