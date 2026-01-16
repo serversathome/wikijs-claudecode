@@ -700,8 +700,11 @@ export default {
         if (_.get(resp, 'responseResult.succeeded')) {
           // Store the draft ID for future saves
           this.currentDraftId = _.get(resp, 'submission.id')
+          // Reset dirty state so user isn't warned about unsaved changes
+          this.initContentParsed = this.$store.get('editor/content')
+          this.setCurrentSavedState()
           this.$store.commit('showNotification', {
-            message: this.$t('editor:save.draftSaved'),
+            message: 'Draft saved successfully',
             style: 'success',
             icon: 'check'
           })
