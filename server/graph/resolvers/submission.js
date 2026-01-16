@@ -194,13 +194,26 @@ module.exports = {
           scriptJs = args.scriptJs || ''
         }
 
-        // Check for existing submission by path/locale/user to prevent duplicates
-        let existingSubmission = await WIKI.models.pageSubmissions.query()
-          .where('path', path)
-          .where('localeCode', args.locale)
-          .where('submitterId', context.req.user.id)
-          .whereIn('status', ['draft', 'pending', 'rejected'])
-          .first()
+        // Check for existing submission to prevent duplicates
+        // First try by pageId if editing an existing page, then by path/locale
+        let existingSubmission = null
+
+        if (args.pageId) {
+          existingSubmission = await WIKI.models.pageSubmissions.query()
+            .where('pageId', args.pageId)
+            .where('submitterId', context.req.user.id)
+            .whereIn('status', ['draft', 'pending', 'rejected'])
+            .first()
+        }
+
+        if (!existingSubmission) {
+          existingSubmission = await WIKI.models.pageSubmissions.query()
+            .where('path', path)
+            .where('localeCode', args.locale)
+            .where('submitterId', context.req.user.id)
+            .whereIn('status', ['draft', 'pending', 'rejected'])
+            .first()
+        }
 
         let submission
         if (existingSubmission) {
@@ -559,7 +572,16 @@ module.exports = {
           existingSubmission = await WIKI.models.pageSubmissions.query().findById(args.id)
         }
 
-        // If no ID or not found, check for existing submission by path/locale/user
+        // If no ID, check by pageId if editing an existing page
+        if (!existingSubmission && args.pageId) {
+          existingSubmission = await WIKI.models.pageSubmissions.query()
+            .where('pageId', args.pageId)
+            .where('submitterId', context.req.user.id)
+            .whereIn('status', ['draft', 'pending', 'rejected'])
+            .first()
+        }
+
+        // If still not found, check by path/locale/user
         // This prevents duplicate submissions when editing from the page editor
         if (!existingSubmission) {
           existingSubmission = await WIKI.models.pageSubmissions.query()
