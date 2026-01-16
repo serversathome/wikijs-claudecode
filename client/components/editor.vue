@@ -185,6 +185,7 @@ export default {
       exitConfirmed: false,
       initContentParsed: '',
       currentDraftId: null,  // This was added by Claude Code for draft saving
+      draftLoaded: false,  // Flag to prevent dialogs when loading a draft
       savedState: {
         description: '',
         isPublished: false,
@@ -239,7 +240,8 @@ export default {
   },
   watch: {
     currentEditor(newValue, oldValue) {
-      if (newValue !== '' && this.mode === 'create') {
+      // Show page properties dialog for new pages, but not when loading a draft
+      if (newValue !== '' && this.mode === 'create' && !this.draftLoaded) {
         _.delay(() => {
           this.dialogProps = true
         }, 500)
@@ -277,12 +279,29 @@ export default {
 
     this.initContentParsed = this.initContent ? Base64.decode(this.initContent) : ''
     this.$store.set('editor/content', this.initContentParsed)
-    if (this.mode === 'create' && !this.initEditor) {
-      _.delay(() => {
-        this.dialogEditorSelector = true
-      }, 500)
+
+    // For users who can't publish, check for drafts first before showing dialogs
+    if (!this.canPublish) {
+      // Load draft first - it will set up the editor if found
+      this.loadDraftIfExists().then(draftLoaded => {
+        if (!draftLoaded) {
+          // No draft found - show normal create dialogs
+          if (this.mode === 'create' && !this.initEditor) {
+            this.dialogEditorSelector = true
+          } else {
+            this.currentEditor = `editor${_.startCase(this.initEditor || 'markdown')}`
+          }
+        }
+      })
     } else {
-      this.currentEditor = `editor${_.startCase(this.initEditor || 'markdown')}`
+      // User can publish - normal flow
+      if (this.mode === 'create' && !this.initEditor) {
+        _.delay(() => {
+          this.dialogEditorSelector = true
+        }, 500)
+      } else {
+        this.currentEditor = `editor${_.startCase(this.initEditor || 'markdown')}`
+      }
     }
 
     window.onbeforeunload = () => {
@@ -296,95 +315,94 @@ export default {
     this.$root.$on('resetEditorConflict', () => {
       this.isConflict = false
     })
-
-    // Check for existing draft submission and load its content
-    this.loadDraftIfExists()
   },
   methods: {
     async loadDraftIfExists() {
       // Check if user has a draft/pending/rejected submission for this page
       // If so, load that content instead of the published page content
-      if (!this.canPublish) {
-        try {
-          const resp = await this.$apollo.query({
+      // Returns true if a draft was loaded, false otherwise
+      try {
+        const resp = await this.$apollo.query({
+          query: gql`
+            query {
+              submissions {
+                mySubmissions {
+                  id
+                  pageId
+                  path
+                  title
+                  description
+                  localeCode
+                  status
+                  reviewComment
+                }
+              }
+            }
+          `,
+          fetchPolicy: 'network-only'
+        })
+        const submissions = _.get(resp, 'data.submissions.mySubmissions', [])
+        // Find a submission matching this page's path and locale
+        const currentPath = this.$store.get('page/path')
+        const currentLocale = this.$store.get('page/locale')
+        const draft = submissions.find(s =>
+          s.path === currentPath &&
+          s.localeCode === currentLocale &&
+          ['draft', 'pending', 'rejected'].includes(s.status)
+        )
+        if (draft) {
+          // Found a draft - fetch its full content
+          const detailResp = await this.$apollo.query({
             query: gql`
-              query {
+              query ($id: Int!) {
                 submissions {
-                  mySubmissions {
+                  mySingle(id: $id) {
                     id
-                    pageId
-                    path
+                    content
+                    contentMarkdown
                     title
                     description
-                    localeCode
-                    status
-                    reviewComment
+                    tags
+                    editorKey
                   }
                 }
               }
             `,
+            variables: { id: draft.id },
             fetchPolicy: 'network-only'
           })
-          const submissions = _.get(resp, 'data.submissions.mySubmissions', [])
-          // Find a submission matching this page's path and locale
-          const currentPath = this.$store.get('page/path')
-          const currentLocale = this.$store.get('page/locale')
-          const draft = submissions.find(s =>
-            s.path === currentPath &&
-            s.localeCode === currentLocale &&
-            ['draft', 'pending', 'rejected'].includes(s.status)
-          )
-          if (draft) {
-            // Found a draft - fetch its full content
-            const detailResp = await this.$apollo.query({
-              query: gql`
-                query ($id: Int!) {
-                  submissions {
-                    mySingle(id: $id) {
-                      id
-                      content
-                      contentMarkdown
-                      title
-                      description
-                      tags
-                      editorKey
-                    }
-                  }
-                }
-              `,
-              variables: { id: draft.id },
-              fetchPolicy: 'network-only'
-            })
-            const fullDraft = _.get(detailResp, 'data.submissions.mySingle')
-            if (fullDraft) {
-              // Load draft content into editor
-              const content = fullDraft.contentMarkdown || fullDraft.content
-              this.initContentParsed = content
-              this.$store.set('editor/content', content)
-              this.$store.set('page/title', fullDraft.title)
-              this.$store.set('page/description', fullDraft.description || '')
-              if (fullDraft.tags) {
-                this.$store.set('page/tags', fullDraft.tags)
-              }
-              // Set the editor to match the one used when creating the draft
-              if (fullDraft.editorKey) {
-                this.currentEditor = `editor${_.startCase(fullDraft.editorKey)}`
-                this.$store.set('editor/editorKey', fullDraft.editorKey)
-              }
-              this.currentDraftId = draft.id
-              this.setCurrentSavedState()
-              this.$store.commit('showNotification', {
-                message: 'Loaded your saved draft',
-                style: 'info',
-                icon: 'edit'
-              })
+          const fullDraft = _.get(detailResp, 'data.submissions.mySingle')
+          if (fullDraft) {
+            // Load draft content into editor
+            const content = fullDraft.contentMarkdown || fullDraft.content
+            this.initContentParsed = content
+            this.$store.set('editor/content', content)
+            this.$store.set('page/title', fullDraft.title)
+            this.$store.set('page/description', fullDraft.description || '')
+            if (fullDraft.tags) {
+              this.$store.set('page/tags', fullDraft.tags)
             }
+            // Set the editor to match the one used when creating the draft
+            if (fullDraft.editorKey) {
+              this.currentEditor = `editor${_.startCase(fullDraft.editorKey)}`
+              this.$store.set('editor/editorKey', fullDraft.editorKey)
+            }
+            this.currentDraftId = draft.id
+            this.draftLoaded = true  // Prevent dialogs from showing
+            this.setCurrentSavedState()
+            this.$store.commit('showNotification', {
+              message: 'Loaded your saved draft',
+              style: 'info',
+              icon: 'edit'
+            })
+            return true // Draft was loaded
           }
-        } catch (err) {
-          // Silently fail - just use the page content
-          console.warn('Failed to check for draft:', err.message)
         }
+      } catch (err) {
+        // Silently fail - just use the page content
+        console.warn('Failed to check for draft:', err.message)
       }
+      return false // No draft loaded
     },
     openPropsModal(name) {
       this.dialogProps = true
