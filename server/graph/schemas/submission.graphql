@@ -182,6 +182,7 @@ type PageSubmissionListItem {
   submitterName: String!
   submitterEmail: String!
   reviewerName: String
+  reviewComment: String
   createdAt: Date!
   updatedAt: Date!
   reviewedAt: Date

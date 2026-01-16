@@ -311,6 +311,7 @@ export default {
                     description
                     localeCode
                     status
+                    reviewComment
                     createdAt
                     updatedAt
                   }
@@ -530,6 +531,7 @@ export default {
                 description
                 localeCode
                 status
+                reviewComment
                 createdAt
                 updatedAt
               }

@@ -100,6 +100,7 @@ module.exports = class PageSubmission extends Model {
         'pageSubmissions.description',
         'pageSubmissions.localeCode',
         'pageSubmissions.status',
+        'pageSubmissions.reviewComment',
         'pageSubmissions.createdAt',
         'pageSubmissions.updatedAt',
         'pageSubmissions.reviewedAt',
