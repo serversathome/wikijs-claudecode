@@ -12,15 +12,11 @@
         //-   v-list-item-content
         //-     v-list-item-title Preferences
         //-     v-list-item-subtitle.caption.grey--text.text--lighten-1 Coming soon
-        v-list-item(to='/pages', color='primary')
-          v-list-item-action: v-icon mdi-file-document-outline
+        //- This was modified by Claude Code - Combined My Content page
+        v-list-item(to='/content', color='primary')
+          v-list-item-action: v-icon mdi-folder-account-outline
           v-list-item-content
-            v-list-item-title {{$t('profile:pages.title')}}
-        //- This was added by Claude Code - My Submissions link
-        v-list-item(to='/submissions', color='primary')
-          v-list-item-action: v-icon mdi-file-send-outline
-          v-list-item-content
-            v-list-item-title {{$t('admin:submissions.mySubmissions')}}
+            v-list-item-title {{$t('profile:content.title')}}
         //- v-list-item(to='/comments', disabled)
         //-   v-list-item-action: v-icon(color='grey lighten-1') mdi-message-reply-text
         //-   v-list-item-content
@@ -53,10 +49,11 @@ const router = new VueRouter({
   routes: [
     { path: '/', redirect: '/profile' },
     { path: '/profile', component: () => import(/* webpackChunkName: "profile" */ './profile/profile.vue') },
-    { path: '/pages', component: () => import(/* webpackChunkName: "profile" */ './profile/pages.vue') },
-    { path: '/comments', component: () => import(/* webpackChunkName: "profile" */ './profile/comments.vue') },
-    // This was added by Claude Code - My Submissions route
-    { path: '/submissions', component: () => import(/* webpackChunkName: "profile" */ './profile/submissions.vue') }
+    // This was modified by Claude Code - Combined My Content page
+    { path: '/content', component: () => import(/* webpackChunkName: "profile" */ './profile/content.vue') },
+    { path: '/pages', redirect: '/content' },
+    { path: '/submissions', redirect: '/content' },
+    { path: '/comments', component: () => import(/* webpackChunkName: "profile" */ './profile/comments.vue') }
   ]
 })
 
