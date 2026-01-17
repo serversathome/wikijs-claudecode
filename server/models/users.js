@@ -866,6 +866,14 @@ module.exports = class User extends Model {
             text: `You must open the following link in your browser to verify your account and gain access to the wiki: ${WIKI.config.host}/verify/${verificationToken}`
           })
         }
+
+        // Send notification for new user registration
+        try {
+          await WIKI.notification.notifyNewUser({ name, email })
+        } catch (err) {
+          WIKI.logger.warn('Failed to send new user notification: ' + err.message)
+        }
+
         return true
       } else {
         throw new WIKI.Error.AuthAccountAlreadyExists()
