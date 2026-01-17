@@ -407,7 +407,9 @@ export default {
         })
       }
       _.delay(() => {
-        this.$refs.pond.removeFile(file.id)
+        if (this.$refs.pond) {
+          this.$refs.pond.removeFile(file.id)
+        }
       }, 5000)
 
       await this.$apollo.queries.assets.refetch()
