@@ -12,6 +12,16 @@ const turndownPluginGfm = require('turndown-plugin-gfm').gfm
 
 /* global WIKI */
 
+function safeJsonParse(str, fallback) {
+  if (!str) return fallback
+  try {
+    return JSON.parse(str)
+  } catch (err) {
+    WIKI.logger.warn(`Failed to parse JSON: ${err.message}`)
+    return fallback
+  }
+}
+
 /**
  * Convert HTML content to Markdown
  */
@@ -119,7 +129,7 @@ module.exports = {
 
       return {
         ...submission,
-        tags: submission.tags ? JSON.parse(submission.tags) : [],
+        tags: safeJsonParse(submission.tags, []),
         contentMarkdown: contentForEdit
       }
     },
@@ -167,7 +177,7 @@ module.exports = {
 
       return {
         ...submission,
-        tags: submission.tags ? JSON.parse(submission.tags) : [],
+        tags: safeJsonParse(submission.tags, []),
         contentMarkdown: contentForEdit
       }
     }
@@ -323,7 +333,7 @@ module.exports = {
           responseResult: graphHelper.generateSuccess('Page submitted for review successfully.'),
           submission: {
             ...fullSubmission,
-            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+            tags: safeJsonParse(fullSubmission.tags, [])
           }
         }
       } catch (err) {
@@ -346,8 +356,8 @@ module.exports = {
         }
 
         // Parse stored data
-        const tags = submission.tags ? JSON.parse(submission.tags) : []
-        const extra = submission.extra ? JSON.parse(submission.extra) : {}
+        const tags = safeJsonParse(submission.tags, [])
+        const extra = safeJsonParse(submission.extra, {})
 
         let page
         if (submission.pageId) {
@@ -357,10 +367,12 @@ module.exports = {
             content: submission.content,
             description: submission.description,
             title: submission.title,
+            locale: submission.localeCode,
             tags: tags,
             isPublished: true,
             scriptCss: extra.css,
             scriptJs: extra.js,
+            action: 'approved',
             user: context.req.user
           })
         } else {
@@ -393,18 +405,33 @@ module.exports = {
 
         WIKI.logger.info(`Submission ${args.id} approved by ${context.req.user.email}`)
 
-        // This section was modified by Claude Code - Send notification for approved submission
         try {
           await WIKI.notification.notifyPageApproved(fullSubmission, context.req.user)
         } catch (err) {
           WIKI.logger.warn('Failed to send approval notification: ' + err.message)
         }
 
+        try {
+          const submitter = await WIKI.models.users.query().findById(submission.submitterId)
+          if (submitter && submitter.email) {
+            const reviewerName = context.req.user.name || context.req.user.email
+            const pageUrl = `${WIKI.config.host || 'http://localhost'}/${submission.localeCode}/${submission.path}`
+            await WIKI.mail.send({
+              to: submitter.email,
+              subject: `Your page submission "${fullSubmission.title}" was approved`,
+              text: `Hello ${submitter.name || 'there'},\n\nYour page submission "${fullSubmission.title}" has been approved and published.\n\nReviewed by: ${reviewerName}\n\nView the page: ${pageUrl}\n\nThank you.`
+            })
+            WIKI.logger.info(`Approval email sent to ${submitter.email} for submission ${args.id}`)
+          }
+        } catch (err) {
+          WIKI.logger.warn('Failed to send approval email to submitter: ' + err.message)
+        }
+
         return {
           responseResult: graphHelper.generateSuccess('Submission approved and page published successfully.'),
           submission: {
             ...fullSubmission,
-            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+            tags: safeJsonParse(fullSubmission.tags, [])
           }
         }
       } catch (err) {
@@ -470,7 +497,7 @@ module.exports = {
           responseResult: graphHelper.generateSuccess('Submission rejected.'),
           submission: {
             ...fullSubmission,
-            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+            tags: safeJsonParse(fullSubmission.tags, [])
           }
         }
       } catch (err) {
@@ -518,7 +545,7 @@ module.exports = {
           responseResult: graphHelper.generateSuccess('Submission updated successfully.'),
           submission: {
             ...fullSubmission,
-            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+            tags: safeJsonParse(fullSubmission.tags, [])
           }
         }
       } catch (err) {
@@ -712,7 +739,7 @@ module.exports = {
           responseResult: graphHelper.generateSuccess('Draft saved successfully.'),
           submission: {
             ...submission,
-            tags: submission.tags ? JSON.parse(submission.tags) : []
+            tags: safeJsonParse(submission.tags, [])
           }
         }
       } catch (err) {
@@ -762,7 +789,7 @@ module.exports = {
           responseResult: graphHelper.generateSuccess('Submission resubmitted for review.'),
           submission: {
             ...fullSubmission,
-            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+            tags: safeJsonParse(fullSubmission.tags, [])
           }
         }
       } catch (err) {
@@ -802,7 +829,7 @@ module.exports = {
           responseResult: graphHelper.generateSuccess('Submission withdrawn. It is now a draft.'),
           submission: {
             ...fullSubmission,
-            tags: fullSubmission.tags ? JSON.parse(fullSubmission.tags) : []
+            tags: safeJsonParse(fullSubmission.tags, [])
           }
         }
       } catch (err) {

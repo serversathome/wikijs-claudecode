@@ -221,20 +221,14 @@ export default {
         this.savedState.js !== this.$store.get('page/scriptJs')
       ], Boolean)
     },
-    // This section was modified by Claude Code - canPublish check for review workflow
     canPublish () {
-      // Check if user has manage:pages or review:pages permission (can publish directly)
-      // Otherwise they need to submit for review
       const perms = this.$store.get('page/effectivePermissions')
-      // If permissions aren't loaded yet, default to NOT allowing publish (show review buttons)
       if (!perms || typeof perms !== 'object') {
         return false
       }
-      // Check for manage or review permissions
       return (
         (perms.system && perms.system.manage) ||
-        (perms.pages && perms.pages.manage) ||
-        (perms.pages && perms.pages.review)
+        (perms.pages && perms.pages.manage)
       )
     }
   },

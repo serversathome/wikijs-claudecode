@@ -87,7 +87,7 @@ module.exports = {
       try {
         isSpam = await akismetClient.checkSpam({
           ip: user.ip,
-          useragent: user.agentagent,
+          useragent: user.agent,
           content,
           name: user.name,
           email: user.email,
