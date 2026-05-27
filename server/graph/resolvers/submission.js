@@ -375,7 +375,20 @@ module.exports = {
             action: 'approved',
             user: context.req.user
           })
+          // Credit the submitter as the page author
+          await WIKI.models.pages.query().findById(page.id).patch({
+            authorId: submission.submitterId
+          })
         } else {
+          // Check if a page already exists at this path
+          const existingPage = await WIKI.models.pages.query()
+            .where('localeCode', submission.localeCode)
+            .where('path', submission.path)
+            .first()
+          if (existingPage) {
+            throw new Error(`A page already exists at /${submission.localeCode}/${submission.path}. It may have been created after this submission was made.`)
+          }
+
           // Create new page
           page = await WIKI.models.pages.createPage({
             path: submission.path,
@@ -390,6 +403,11 @@ module.exports = {
             scriptCss: extra.css,
             scriptJs: extra.js,
             user: context.req.user
+          })
+          // Credit the submitter as both author and creator
+          await WIKI.models.pages.query().findById(page.id).patch({
+            authorId: submission.submitterId,
+            creatorId: submission.submitterId
           })
         }
 
