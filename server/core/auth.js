@@ -318,6 +318,41 @@ module.exports = {
   },
 
   /**
+   * Check if user can assign users to groups with elevated permissions
+   */
+  async checkAssignUserToGroupAccess(requester, groupIds = []) {
+    if (!groupIds || groupIds.length < 1) {
+      return true
+    }
+
+    const requesterPermissions = requester.permissions ? requester.permissions : requester.getGlobalPermissions()
+
+    if (requesterPermissions.includes('manage:system')) {
+      return true
+    }
+
+    if (!requesterPermissions.some(p => ['write:users', 'manage:users', 'write:groups', 'manage:groups'].includes(p))) {
+      return false
+    }
+
+    const groups = await WIKI.models.groups.query().whereIn('id', groupIds)
+    return groups.every(grp => {
+      if (grp.permissions.includes('manage:system')) {
+        return false
+      }
+
+      if (grp.permissions.some(p => {
+        const permType = _.last(p.split(':'))
+        return ['users', 'groups', 'navigation', 'theme', 'api'].includes(permType)
+      }) && !requesterPermissions.includes('manage:groups')) {
+        return false
+      }
+
+      return true
+    })
+  },
+
+  /**
    * Check and apply Page Rule specificity
    *
    * @access private

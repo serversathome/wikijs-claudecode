@@ -157,14 +157,14 @@ export default {
           items: [
             {
               permission: 'write:users',
-              hint: 'Can create or authorize new users, but not modify existing ones',
+              hint: 'Can create or authorize new users, but not modify existing ones or assign to administrative groups',
               warning: false,
               restrictedForSystem: true,
               disabled: false
             },
             {
               permission: 'manage:users',
-              hint: 'Can manage all users (but not users with administrative permissions)',
+              hint: 'Can manage all users but not assign to administrative groups',
               warning: false,
               restrictedForSystem: true,
               disabled: false

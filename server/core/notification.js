@@ -3,9 +3,9 @@
  * Apprise Notification Service for Wiki.js
  */
 
-const { exec } = require('child_process')
+const { execFile } = require('child_process')
 const { promisify } = require('util')
-const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 const _ = require('lodash')
 
 /* global WIKI */
@@ -39,18 +39,16 @@ module.exports = {
     }
 
     try {
-      // Escape special characters for shell safety
-      const safeTitle = title.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
-      const safeBody = body.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
-
-      // Build the apprise command
-      const cmd = `apprise -t "${safeTitle}" -b "${safeBody}" ${appriseUrls}`
-
-      await execAsync(cmd, { timeout: 30000 })
+      const urls = appriseUrls.trim().split(/\s+/).filter(u => u.length > 0)
+      await execFileAsync('apprise', ['-t', title, '-b', body, ...urls], { timeout: 10000 })
       WIKI.logger.info(`Notification sent: ${title}`)
       return true
     } catch (err) {
-      WIKI.logger.warn(`Failed to send notification: ${err.message}`)
+      if (err.code === 'ENOENT') {
+        WIKI.logger.warn('Apprise binary not found. Install apprise to enable notifications.')
+      } else {
+        WIKI.logger.warn(`Failed to send notification: ${err.message}`)
+      }
       return false
     }
   },

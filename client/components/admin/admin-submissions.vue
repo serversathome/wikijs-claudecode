@@ -67,6 +67,7 @@
                         icon
                         small
                         color='purple'
+                        :disabled='loading'
                         @click='openEditDialog(item)'
                       )
                         v-icon(small) mdi-pencil
@@ -78,6 +79,7 @@
                         icon
                         small
                         color='green'
+                        :disabled='loading'
                         @click='openApproveDialog(item)'
                       )
                         v-icon(small) mdi-check
@@ -89,6 +91,7 @@
                         icon
                         small
                         color='red'
+                        :disabled='loading'
                         @click='openRejectDialog(item)'
                       )
                         v-icon(small) mdi-close
@@ -100,6 +103,7 @@
                         icon
                         small
                         color='blue'
+                        :disabled='loading'
                         @click='viewSubmission(item)'
                       )
                         v-icon(small) mdi-eye
@@ -120,8 +124,8 @@
           p.font-weight-bold The page "{{ selectedSubmission ? selectedSubmission.title : '' }}" will be published immediately.
         v-card-actions
           v-spacer
-          v-btn(text, @click='approveDialog = false') Cancel
-          v-btn(color='green', dark, @click='approveSubmission')
+          v-btn(text, @click='approveDialog = false', :disabled='loading') Cancel
+          v-btn(color='green', dark, @click='approveSubmission', :disabled='loading', :loading='loading')
             v-icon(left) mdi-check
             | Approve
 
@@ -143,8 +147,8 @@
           )
         v-card-actions
           v-spacer
-          v-btn(text, @click='rejectDialog = false') Cancel
-          v-btn(color='red', dark, @click='rejectSubmission', :disabled='!rejectComment.trim()')
+          v-btn(text, @click='rejectDialog = false', :disabled='loading') Cancel
+          v-btn(color='red', dark, @click='rejectSubmission', :disabled='!rejectComment.trim() || loading', :loading='loading')
             v-icon(left) mdi-close
             | Reject
 
@@ -194,12 +198,12 @@
                   :style='{ fontFamily: "Roboto Mono, monospace", fontSize: "14px" }'
                 )
         v-card-actions
-          v-btn(text, color='grey', @click='editDialog = false') Cancel
+          v-btn(text, color='grey', @click='editDialog = false', :disabled='saving') Cancel
           v-spacer
-          v-btn(color='purple', dark, @click='saveEdit', :loading='saving')
+          v-btn(color='purple', dark, @click='saveEdit', :loading='saving', :disabled='saving')
             v-icon(left) mdi-content-save
             | Save
-          v-btn(color='green', dark, @click='saveAndApprove', :loading='saving')
+          v-btn(color='green', dark, @click='saveAndApprove', :loading='saving', :disabled='saving')
             v-icon(left) mdi-check
             | Save & Approve
 
@@ -293,6 +297,7 @@
 <script>
 import gql from 'graphql-tag'
 import markdownit from 'markdown-it'
+import DOMPurify from 'dompurify'
 
 const md = markdownit({
   html: true,
@@ -348,11 +353,10 @@ export default {
       if (!content) {
         return ''
       }
-      // Render markdown to HTML
       try {
-        return md.render(content)
+        return DOMPurify.sanitize(md.render(content))
       } catch (e) {
-        return '<pre>' + content + '</pre>'
+        return DOMPurify.sanitize(content)
       }
     }
   },

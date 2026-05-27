@@ -45,6 +45,22 @@ module.exports = {
     },
     async updateConfig(obj, args, context) {
       try {
+        // Validate Apprise URLs
+        if (args.appriseUrls && args.appriseUrls.length > 5000) {
+          throw new Error('Apprise URLs configuration exceeds maximum length.')
+        }
+        if (args.appriseUrls) {
+          const urls = args.appriseUrls.trim().split(/\s+/).filter(u => u.length > 0)
+          for (const url of urls) {
+            if (!url.includes('://')) {
+              throw new Error(`Invalid Apprise URL: "${url}". Each URL must contain a protocol scheme (e.g. discord://, slack://).`)
+            }
+            if (/[\x00-\x1f]/.test(url)) {
+              throw new Error('Apprise URLs must not contain control characters.')
+            }
+          }
+        }
+
         WIKI.config.notification = {
           appriseUrls: args.appriseUrls,
           onNewComment: args.onNewComment,

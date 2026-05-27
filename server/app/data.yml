@@ -96,7 +96,7 @@ defaults:
       securityTrustProxy: false
       securitySRI: true
       securityHSTS: false
-      securityHSTSDuration: 300
+      securityHSTSDuration: 31536000
       securityCSP: false
       securityCSPDirectives: ''
     server:
