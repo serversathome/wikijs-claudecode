@@ -5,7 +5,7 @@
 > I am not a developer and cannot verify the safety or correctness of any AI-generated code changes. **Use at your own risk.**
 >
 > **Before using this fork:**
-> - Review the **[CHANGES.md](CHANGES.md)** file for a complete diff of all modifications
+> - Review the **[CHANGES.md](CHANGES.md)** file for a complete diff of all modifications, and **[CHANGELOG.md](CHANGELOG.md)** for per-release notes
 > - Modified code sections are marked with comments containing `This section was modified by Claude Code` or `This file was created by Claude Code`
 > - Search the codebase for `Claude Code` to find all AI-modified sections
 >
@@ -47,6 +47,65 @@ This is a modified version of Wiki.js with additional features including:
 - **Custom favicon from logo** - Site logo automatically used as favicon
 - **Apprise notifications** - Get notified via Discord, Slack, Telegram, email, and 80+ services when comments are posted or pages are submitted for review
 
+### Versions and Releases
+
+This fork is versioned independently of upstream Wiki.js. Each release is a git tag
+(`v1.1.0`) with matching container image tags, so you can pin to a known-good build and
+roll back if a release misbehaves. See **[CHANGELOG.md](CHANGELOG.md)** for what changed
+in each release.
+
+| Release | Image tags published |
+|---------|----------------------|
+| `v1.1.0` and later | `1.1.0`, `1.1`, `1` |
+| `v1.0.0` | *(none — see below)* |
+
+`latest` tracks the `main` branch and moves on every merge. Re-tagging an older release
+never overwrites it.
+
+> [!NOTE]
+> `v1.0.0` is a git tag only. Semver image tags were introduced *in* v1.1.0, and GitHub
+> Actions runs the workflow file as it existed at the tagged commit — so tagging the v1.0.0
+> commit cannot produce a `1.0.0` image. The v1.0.0 build does exist under its commit SHA:
+>
+> ```
+> ghcr.io/serversathome/wikijs-claudecode:d78bfad98d302b2003371c81b694428062095940
+> ```
+>
+> To give it a friendly tag without rebuilding (copies the manifest, takes a second):
+>
+> ```bash
+> docker buildx imagetools create \
+>   -t ghcr.io/serversathome/wikijs-claudecode:1.0.0 \
+>   ghcr.io/serversathome/wikijs-claudecode:d78bfad98d302b2003371c81b694428062095940
+> ```
+>
+> From v1.1.0 onward, tagging a release publishes semver image tags automatically.
+
+**Pin to a release** (recommended for production) — use the two-part tag to pick up patch
+releases within a minor version, or the full tag to freeze exactly:
+
+```yaml
+image: ghcr.io/serversathome/wikijs-claudecode:1.1
+```
+
+**Roll back** — change the tag and recreate the container:
+
+```bash
+# in docker-compose.yml, change the image tag to the previous release
+docker compose pull wiki && docker compose up -d wiki
+```
+
+> [!IMPORTANT]
+> Rolling back the container does **not** roll back the database. Wiki.js applies schema
+> migrations on startup and they are not reversed by downgrading the image. Rolling back
+> across a release that added a migration will leave you on the newer schema — usually
+> harmless, since migrations here are additive, but take a database backup before
+> upgrading so you have a real restore path.
+
+The running container reports the upstream Wiki.js version in Admin → System Info, not the
+fork version. To confirm which fork release is deployed, check the image tag
+(`docker inspect --format '{{.Config.Image}}' wikijs`).
+
 ### Quick Start for Testers
 
 Pull the pre-built image from GitHub Container Registry:
@@ -73,7 +132,8 @@ services:
     restart: unless-stopped
 
   wiki:
-    image: ghcr.io/serversathome/wikijs-claudecode:latest
+    # Pin to a release tag so you can roll back; use :latest to track main
+    image: ghcr.io/serversathome/wikijs-claudecode:1.1
     container_name: wikijs
     depends_on:
       - db

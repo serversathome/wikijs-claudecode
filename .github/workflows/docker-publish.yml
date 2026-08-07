@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    tags:
+      # Release tags, e.g. v1.1.0 -> image tags 1.1.0, 1.1, 1
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
 
 jobs:
@@ -28,14 +31,29 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository_owner }}/wikijs-claudecode
+        tags: |
+          # Immutable per-commit tag (unchanged from before, existing pins keep working)
+          type=raw,value=${{ github.sha }}
+          # `latest` only ever moves on a push to the default branch, never on a
+          # release tag - so re-tagging an older release cannot clobber it.
+          type=raw,value=latest,enable={{is_default_branch}}
+          # Release tags: v1.1.0 publishes 1.1.0, 1.1 and 1
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+
     - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
         file: dev/build/Dockerfile
         push: true
-        tags: |
-          ghcr.io/${{ github.repository_owner }}/wikijs-claudecode:latest
-          ghcr.io/${{ github.repository_owner }}/wikijs-claudecode:${{ github.sha }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max

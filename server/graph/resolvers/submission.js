@@ -12,6 +12,18 @@ const turndownPluginGfm = require('turndown-plugin-gfm').gfm
 
 /* global WIKI */
 
+const MAX_PAGE_SIZE = 500
+
+/**
+ * Clamp caller-supplied paging args so a single query can't ask for the whole table
+ */
+function clampPaging({ limit, offset }) {
+  return {
+    limit: Math.min(Math.max(_.toSafeInteger(limit) || 50, 1), MAX_PAGE_SIZE),
+    offset: Math.max(_.toSafeInteger(offset) || 0, 0)
+  }
+}
+
 function safeJsonParse(str, fallback) {
   if (!str) return fallback
   try {
@@ -90,8 +102,7 @@ module.exports = {
       const submissions = await WIKI.models.pageSubmissions.getSubmissions({
         status: args.status,
         submitterId: args.submitterId,
-        limit: args.limit || 50,
-        offset: args.offset || 0
+        ...clampPaging(args)
       })
 
       return submissions.map(s => ({
@@ -141,8 +152,7 @@ module.exports = {
       const submissions = await WIKI.models.pageSubmissions.getSubmissions({
         status: args.status,
         submitterId: context.req.user.id,
-        limit: args.limit || 50,
-        offset: args.offset || 0
+        ...clampPaging(args)
       })
 
       return submissions.map(s => ({
@@ -359,65 +369,106 @@ module.exports = {
         const tags = safeJsonParse(submission.tags, [])
         const extra = safeJsonParse(submission.extra, {})
 
-        let page
-        if (submission.pageId) {
-          // Update existing page
-          page = await WIKI.models.pages.updatePage({
-            id: submission.pageId,
-            content: submission.content,
-            description: submission.description,
-            title: submission.title,
-            locale: submission.localeCode,
-            tags: tags,
-            isPublished: true,
-            scriptCss: extra.css,
-            scriptJs: extra.js,
-            action: 'approved',
-            user: context.req.user
+        // This section was modified by Claude Code - claim the submission before publishing.
+        // The conditional patch only succeeds for the first reviewer to reach it, so two
+        // reviewers approving at the same time can't both publish the page.
+        const claimed = await WIKI.models.pageSubmissions.query()
+          .findById(args.id)
+          .where('status', 'pending')
+          .patch({
+            status: 'approved',
+            reviewerId: context.req.user.id,
+            reviewComment: args.comment || '',
+            reviewedAt: new Date().toISOString()
           })
-          // Credit the submitter as the page author
-          await WIKI.models.pages.query().findById(page.id).patch({
-            authorId: submission.submitterId
-          })
-        } else {
-          // Check if a page already exists at this path
-          const existingPage = await WIKI.models.pages.query()
-            .where('localeCode', submission.localeCode)
-            .where('path', submission.path)
-            .first()
-          if (existingPage) {
-            throw new Error(`A page already exists at /${submission.localeCode}/${submission.path}. It may have been created after this submission was made.`)
-          }
 
-          // Create new page
-          page = await WIKI.models.pages.createPage({
-            path: submission.path,
-            locale: submission.localeCode,
-            title: submission.title,
-            description: submission.description,
-            content: submission.content,
-            editor: submission.editorKey,
-            isPublished: true,
-            isPrivate: submission.isPrivate,
-            tags: tags,
-            scriptCss: extra.css,
-            scriptJs: extra.js,
-            user: context.req.user
-          })
-          // Credit the submitter as both author and creator
-          await WIKI.models.pages.query().findById(page.id).patch({
-            authorId: submission.submitterId,
-            creatorId: submission.submitterId
-          })
+        if (claimed < 1) {
+          throw new Error('Submission has already been reviewed')
         }
 
-        // Update submission status
-        await WIKI.models.pageSubmissions.query().findById(args.id).patch({
-          status: 'approved',
-          reviewerId: context.req.user.id,
-          reviewComment: args.comment || '',
-          reviewedAt: new Date().toISOString()
-        })
+        let page
+        try {
+          if (submission.pageId) {
+            const ogPage = await WIKI.models.pages.query().findById(submission.pageId)
+            if (!ogPage) {
+              throw new Error('The page this submission targets no longer exists.')
+            }
+
+            // Update existing page.
+            //
+            // scriptCss/scriptJs are only carried over when the submission actually holds them.
+            // A submitter without write:styles/write:scripts always stores '', and updatePage
+            // treats an empty value from a reviewer who *does* hold those permissions as
+            // "clear the field" - which would wipe the page's existing CSS/JS on every approval.
+            page = await WIKI.models.pages.updatePage({
+              id: submission.pageId,
+              content: submission.content,
+              description: submission.description,
+              title: submission.title,
+              locale: submission.localeCode,
+              path: submission.path,
+              tags: tags,
+              isPublished: true,
+              scriptCss: _.isEmpty(extra.css) ? _.get(ogPage, 'extra.css', '') : extra.css,
+              scriptJs: _.isEmpty(extra.js) ? _.get(ogPage, 'extra.js', '') : extra.js,
+              action: 'approved',
+              user: context.req.user
+            })
+            // Credit the submitter as the page author
+            await WIKI.models.pages.query().findById(page.id).patch({
+              authorId: submission.submitterId
+            })
+          } else {
+            // Check if a page already exists at this path
+            const existingPage = await WIKI.models.pages.query()
+              .where('localeCode', submission.localeCode)
+              .where('path', submission.path)
+              .first()
+            if (existingPage) {
+              throw new Error(`A page already exists at /${submission.localeCode}/${submission.path}. It may have been created after this submission was made.`)
+            }
+
+            // Create new page
+            page = await WIKI.models.pages.createPage({
+              path: submission.path,
+              locale: submission.localeCode,
+              title: submission.title,
+              description: submission.description,
+              content: submission.content,
+              editor: submission.editorKey,
+              isPublished: true,
+              isPrivate: submission.isPrivate,
+              tags: tags,
+              scriptCss: extra.css,
+              scriptJs: extra.js,
+              user: context.req.user
+            })
+            // Credit the submitter as both author and creator
+            await WIKI.models.pages.query().findById(page.id).patch({
+              authorId: submission.submitterId,
+              creatorId: submission.submitterId
+            })
+          }
+        } catch (err) {
+          // Publishing failed - release the claim so the submission stays actionable
+          await WIKI.models.pageSubmissions.query().findById(args.id).patch({
+            status: 'pending',
+            reviewerId: null,
+            reviewComment: null,
+            reviewedAt: null
+          })
+          throw err
+        }
+
+        // The authorId patch above lands after updatePage/createPage rendered the page and
+        // primed the cache, so drop the cached copy to avoid serving the reviewer as author.
+        // The hash is re-read rather than taken from `page`: updatePage returns the page as it
+        // was before any move, so an approval that renames the page would otherwise invalidate
+        // the stale hash and leave the new one cached.
+        const publishedPage = await WIKI.models.pages.query().findById(page.id).select('hash')
+        if (publishedPage) {
+          WIKI.events.outbound.emit('deletePageFromCache', publishedPage.hash)
+        }
 
         const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
 
