@@ -505,8 +505,10 @@ module.exports = {
         delete: WIKI.auth.checkAccess(req.user, ['delete:pages'], page),
         script: WIKI.auth.checkAccess(req.user, ['write:scripts'], page),
         style: WIKI.auth.checkAccess(req.user, ['write:styles'], page),
-        // This section was modified by Claude Code - added review permission for submission workflow
-        review: WIKI.auth.checkAccess(req.user, ['review:pages'], page)
+        // This section was modified by Claude Code - added review permission for submission workflow.
+        // Checked globally, not against page rules: 'review:pages' is not an assignable page-rule
+        // role, so passing `page` here would make this always false for non-admins.
+        review: WIKI.auth.checkAccess(req.user, ['review:pages'])
       },
       system: {
         manage: WIKI.auth.checkAccess(req.user, ['manage:system'], page)
