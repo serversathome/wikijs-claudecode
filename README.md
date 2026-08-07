@@ -47,6 +47,20 @@ This is a modified version of Wiki.js with additional features including:
 - **Custom favicon from logo** - Site logo automatically used as favicon
 - **Apprise notifications** - Get notified via Discord, Slack, Telegram, email, and 80+ services when comments are posted or pages are submitted for review
 
+### Review Workflow Permissions
+
+| Permission | What it allows |
+|------------|----------------|
+| `write:pages` | Edit pages and **submit changes for review**. Cannot publish. |
+| `review:pages` | Approve or reject submissions at `/a/submissions`. |
+| `manage:pages` | Publish directly, bypassing review. |
+| `manage:system` | Everything. |
+
+As of v1.2.0 this is enforced server-side, not just in the editor UI. Both `review:pages`
+and `manage:pages` can be granted globally or scoped to a path under Admin → Groups → Page
+Rules — so you can let a group publish directly within one section of the wiki while their
+edits elsewhere still go through review.
+
 ### Versions and Releases
 
 This fork is versioned independently of upstream Wiki.js. Each release is a git tag
@@ -56,7 +70,8 @@ in each release.
 
 | Release | Image tags published |
 |---------|----------------------|
-| `v1.1.0` and later | `1.1.0`, `1.1`, `1` |
+| `v1.2.0` | `1.2.0`, `1.2`, `1` |
+| `v1.1.0` | `1.1.0`, `1.1`, `1` |
 | `v1.0.0` | *(none — see below)* |
 
 `latest` tracks the `main` branch and moves on every merge. Re-tagging an older release
@@ -133,7 +148,7 @@ services:
 
   wiki:
     # Pin to a release tag so you can roll back; use :latest to track main
-    image: ghcr.io/serversathome/wikijs-claudecode:1.1
+    image: ghcr.io/serversathome/wikijs-claudecode:1.2
     container_name: wikijs
     depends_on:
       - db

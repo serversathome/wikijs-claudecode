@@ -19,6 +19,37 @@ const extToContent = _.invert(contentToExt)
 
 module.exports = {
   /**
+   * This section was created by Claude Code - enforce the review workflow server-side.
+   *
+   * Publishing directly is reserved for users who can manage pages. Everyone else holds
+   * write:pages, which lets them submit for review (submissions.submit) but not put content
+   * live. Without this the review workflow was advisory only: the editor hides Save/Publish
+   * from those users, but the page mutations underneath still accepted write:pages, so
+   * anyone could publish straight through the GraphQL endpoint.
+   *
+   * Authorised against page rules rather than global permissions alone, so a group granted
+   * manage:pages on a subtree keeps direct publishing there. This is deliberately the same
+   * predicate the editor's `canPublish` uses (effectivePermissions pages.manage ||
+   * system.manage, both from auth.getEffectivePermissions), so the button a user sees and
+   * what the server accepts cannot disagree. manage:system short-circuits inside checkAccess.
+   *
+   * Approvals and storage sync are unaffected - both call the pages model directly rather
+   * than going through the GraphQL resolvers.
+   */
+  canPublishDirectly (user, { locale, path }) {
+    return WIKI.auth.checkAccess(user, ['manage:pages'], { locale, path })
+  },
+
+  /**
+   * Throw unless the user may publish directly to the given page
+   */
+  ensureCanPublishDirectly (user, { locale, path }) {
+    if (!module.exports.canPublishDirectly(user, { locale, path })) {
+      throw new Error('You do not have permission to publish pages directly. Submit your changes for review instead.')
+    }
+  },
+
+  /**
    * Parse raw url path and make it safe
    */
   parsePath (rawPath, opts = {}) {

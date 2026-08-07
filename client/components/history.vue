@@ -55,7 +55,9 @@
                         v-list-item(@click='download(ph.versionId)')
                           v-list-item-avatar(size='24'): v-icon mdi-cloud-download-outline
                           v-list-item-title Download Version
-                        v-list-item(@click='restore(ph.versionId, ph.versionDate)', :disabled='ph.versionId === 0')
+                        //- This was modified by Claude Code - restoring publishes a version, so it is
+                        //- hidden from users who must go through review, matching the server-side check
+                        v-list-item(v-if='canPublishDirectly', @click='restore(ph.versionId, ph.versionDate)', :disabled='ph.versionId === 0')
                           v-list-item-avatar(size='24'): v-icon(:disabled='ph.versionId === 0') mdi-history
                           v-list-item-title Restore
                         v-list-item(@click='branchOff(ph.versionId)')
@@ -227,6 +229,18 @@ export default {
     }
   },
   computed: {
+    // This section was created by Claude Code - mirrors the editor's canPublish and the
+    // server-side check in the page resolver, so the UI never offers a restore the API rejects.
+    canPublishDirectly () {
+      const perms = this.$store.get('page/effectivePermissions')
+      if (!perms || typeof perms !== 'object') {
+        return false
+      }
+      return Boolean(
+        (perms.system && perms.system.manage) ||
+        (perms.pages && perms.pages.manage)
+      )
+    },
     fullTrail () {
       const liveTrailItem = {
         versionId: 0,
