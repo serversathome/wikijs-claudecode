@@ -1,5 +1,7 @@
 const _ = require('lodash')
 const graphHelper = require('../../helpers/graph')
+// This section was modified by Claude Code - server-side enforcement of the review workflow
+const { ensureCanPublishDirectly } = require('../../helpers/page')
 
 /* global WIKI */
 
@@ -395,6 +397,7 @@ module.exports = {
      */
     async create(obj, args, context) {
       try {
+        ensureCanPublishDirectly(context.req.user, { locale: args.locale, path: args.path })
         const page = await WIKI.models.pages.createPage({
           ...args,
           user: context.req.user
@@ -412,6 +415,13 @@ module.exports = {
      */
     async update(obj, args, context) {
       try {
+        // Authorised against the page as it stands, not the incoming args: when the update
+        // also moves the page, updatePage checks the destination separately.
+        const ogPage = await WIKI.models.pages.query().select('path', 'localeCode').findById(args.id)
+        if (!ogPage) {
+          throw new WIKI.Error.PageNotFound()
+        }
+        ensureCanPublishDirectly(context.req.user, { locale: ogPage.localeCode, path: ogPage.path })
         const page = await WIKI.models.pages.updatePage({
           ...args,
           user: context.req.user
@@ -429,6 +439,11 @@ module.exports = {
      */
     async convert(obj, args, context) {
       try {
+        const ogPage = await WIKI.models.pages.query().select('path', 'localeCode').findById(args.id)
+        if (!ogPage) {
+          throw new WIKI.Error.PageNotFound()
+        }
+        ensureCanPublishDirectly(context.req.user, { locale: ogPage.localeCode, path: ogPage.path })
         await WIKI.models.pages.convertPage({
           ...args,
           user: context.req.user
@@ -586,6 +601,9 @@ module.exports = {
         })) {
           throw new WIKI.Error.PageRestoreForbidden()
         }
+
+        // Restoring puts a previous version live, so it is a publish and gated as one
+        ensureCanPublishDirectly(context.req.user, { locale: page.localeCode, path: page.path })
 
         const targetVersion = await WIKI.models.pageHistory.getVersion({ pageId: args.pageId, versionId: args.versionId })
         if (!targetVersion) {

@@ -10,6 +10,74 @@ For a line-by-line record of every AI-authored modification, see [CHANGES.md](CH
 
 ---
 
+## v1.2.0
+
+Closes the review workflow bypass. **This release removes capability from some users — read
+the upgrade note before deploying.**
+
+### Security
+
+- **The review workflow is now enforced server-side.** `pages.create`, `pages.update`,
+  `pages.convert` and `pages.restore` accepted `write:pages`, so any user who could submit
+  an edit for review could equally publish it straight through the GraphQL endpoint — from
+  the browser console of the wiki they were already signed into, or from an API token. The
+  "Submit for Review" gate was client-side only (`editor.vue`'s `canPublish`), which made
+  the approval step an editorial convention rather than an access control.
+
+  Publishing directly now requires `manage:pages` (or `manage:system`). `write:pages` still
+  allows submitting for review, saving drafts, and everything else it did before.
+  (`server/helpers/page.js`, `server/graph/resolvers/page.js`)
+
+  `restore` is included because restoring a previous version puts content live — it is a
+  publish, and was the least obvious of the four routes.
+
+  Authorisation is evaluated against **page rules**, not global permissions alone, so a
+  group granted `manage:pages` over a subtree keeps direct publishing within it. The check
+  is deliberately the same predicate the editor already uses to decide whether to show the
+  Save button, so the UI and the API cannot disagree.
+
+  Approvals and storage sync are unaffected — both call the pages model directly rather
+  than going through the GraphQL resolvers, so a reviewer approving a submission still
+  publishes normally regardless of the submitter's permissions.
+
+### Changed
+
+- The **Restore** action on the page history screen is now hidden from users who cannot
+  publish directly, instead of being offered and then rejected by the server.
+  (`client/components/history.vue`)
+
+### Added
+
+- Unit tests covering the new guard, including that authorisation stays page-scoped —
+  widening it to a global check would let someone with `manage:pages` on one subtree publish
+  anywhere, and would silently disagree with the editor. (`server/test/helpers/page.test.js`)
+
+### Upgrade note
+
+**Before deploying, check which groups are affected.** Any group with `write:pages` but
+without `manage:pages` loses the ability to publish directly — which is the point, but you
+should know who that is rather than find out from a support request:
+
+```sql
+SELECT g.id, g.name, g.permissions
+FROM groups g
+WHERE g.permissions::text LIKE '%write:pages%'
+  AND g.permissions::text NOT LIKE '%manage:pages%'
+  AND g.permissions::text NOT LIKE '%manage:system%';
+```
+
+Also check `apiKeys` — an integration that creates or updates pages with a `write:pages`
+token will start failing, and unlike a person it will not tell you.
+
+To restore direct publishing for a group, grant it `manage:pages` in Admin → Groups, either
+globally or scoped to a path via Page Rules. That takes effect immediately and needs no
+redeploy, so it is a faster remedy than rolling back the container.
+
+Rolling back to `1.1` also reopens the bypass, which may be the right trade if something
+unexpected breaks — it is the state you were already running.
+
+---
+
 ## v1.1.0
 
 Bug fixes to the page review workflow. No database migrations, no schema changes, and no
@@ -75,11 +143,7 @@ Safe to roll back to `1.0.0`.
 
 ### Known issues (not addressed in this release)
 
-- **The review workflow is bypassable.** `pages.create`, `pages.update`, `pages.convert`
-  and `pages.restore` still accept `write:pages`, so a user who can submit for review can
-  also publish directly through the GraphQL API, bypassing review entirely. The
-  "Submit for Review" gate is client-side only. Deferred to `v1.2.0` because closing it
-  removes capability from existing users and needs a group and API-token audit first.
+- ~~**The review workflow is bypassable.**~~ Fixed in v1.2.0.
 - **Dependency CVEs.** `yarn audit` reports 17 critical / 407 high. Most are unreachable
   (unused database drivers and auth strategies), but `simple-git` (RCE) and `nodemailer`
   (arbitrary file read / SSRF) are reachable and worth scheduling.
