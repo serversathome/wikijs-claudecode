@@ -22,13 +22,17 @@ module.exports = {
       state: conf.enableCSRFProtection
     }, async (req, accessToken, refreshToken, profile, cb) => {
       try {
+        const picture = _.get(profile, conf.pictureClaim, '')
         const user = await WIKI.models.users.processProfile({
           providerKey: req.params.strategy,
           profile: {
             ...profile,
             id: _.get(profile, conf.userIdClaim),
             displayName: _.get(profile, conf.displayNameClaim, '???'),
-            email: _.get(profile, conf.emailClaim)
+            email: _.get(profile, conf.emailClaim),
+            // Only set picture when the claim yielded a value, otherwise
+            // processProfile would overwrite the existing avatar with ''
+            ...(picture && { picture })
           }
         })
         if (conf.mapGroups) {

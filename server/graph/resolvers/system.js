@@ -6,7 +6,6 @@ const path = require('path')
 const fs = require('fs-extra')
 const moment = require('moment')
 const graphHelper = require('../../helpers/graph')
-const request = require('request-promise')
 const crypto = require('crypto')
 const nanoid = require('nanoid/non-secure').customAlphabet('1234567890abcdef', 10)
 
@@ -89,13 +88,15 @@ module.exports = {
     async performUpgrade (obj, args, context) {
       try {
         if (process.env.UPGRADE_COMPANION) {
-          await request({
-            method: 'POST',
-            uri: 'http://wiki-update-companion/upgrade',
-            qs: {
-              ...process.env.UPGRADE_COMPANION_REF && { container: process.env.UPGRADE_COMPANION_REF }
-            }
+          const qs = new URLSearchParams({
+            ...process.env.UPGRADE_COMPANION_REF && { container: process.env.UPGRADE_COMPANION_REF }
+          }).toString()
+          const resp = await fetch(`http://wiki-update-companion/upgrade${qs ? `?${qs}` : ''}`, {
+            method: 'POST'
           })
+          if (!resp.ok) {
+            throw new Error(`Unexpected response code ${resp.status} from wiki-update-companion.`)
+          }
           return {
             responseResult: graphHelper.generateSuccess('Upgrade has started.')
           }
