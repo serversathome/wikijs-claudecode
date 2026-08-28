@@ -10,6 +10,68 @@ For a line-by-line record of every AI-authored modification, see [CHANGES.md](CH
 
 ---
 
+## v1.3.0
+
+Maintenance release. One real bug fix, three deprecated dependencies removed, and a new
+avatar option for OIDC/OAuth2. No breaking changes and no permission changes — upgrading
+from v1.2.0 needs no action.
+
+Most of this release was ported from [swissmakers/wikijs-ng](https://github.com/swissmakers/wikijs-ng),
+another Wiki.js 2.x fork, after comparing it against this one.
+
+### Fixed
+
+- **Image prefetch corrupted every image it processed.** The `html-image-prefetch` renderer
+  fetched images with `request-promise` but without `encoding: null`, so the response body
+  came back as a UTF-8 decoded string. Base64-encoding that string replaced every byte that
+  is not valid UTF-8 with U+FFFD, producing a larger, unusable payload — a 69-byte PNG came
+  out as 79 broken bytes. It now reads the body as an `ArrayBuffer` so the raw bytes are
+  preserved. (`server/modules/rendering/html-image-prefetch/renderer.js`)
+
+### Added
+
+- **Picture Claim option for the OIDC and OAuth2 strategies.** The avatar URL returned by
+  the identity provider is now mapped onto the user's profile picture. `processProfile`
+  already consumed `profile.picture`; neither strategy was populating it. The claim field
+  defaults to `picture` and is configurable under Admin → Auth.
+
+  The claim is only applied when it actually yields a value. Writing it unconditionally
+  would clear the stored avatar on every login for providers that omit it, because the
+  avatar is resolved with `_.get(profile, 'picture', <existing>)` and lodash only falls
+  back on `undefined`, not on an empty string. Strategies configured before this release
+  behave exactly as before until the option is set.
+  (`server/modules/authentication/{oidc,oauth2}/`)
+
+### Security
+
+- **Removed `request`, `request-promise` and `apollo-fetch`.** All three are deprecated and
+  pull in a vulnerable transitive chain (`tough-cookie`, `form-data`). Every call site now
+  uses native `fetch`, which Node 20+ provides: the sponsors query, the wiki-update-companion
+  upgrade trigger, Azure search autocomplete, and — via a new `createGraphFetch` helper —
+  telemetry and the three graph sync jobs.
+
+  `request-promise` rejected on non-2xx by default and `apollo-fetch` parsed the JSON body
+  for callers; bare `fetch` does neither, so each converted site carries an explicit status
+  check to keep the existing error handling intact. (`server/helpers/graph-fetch.js`)
+
+### Changed
+
+- Removed the vendored `client/libs/prism/`. It was dead code — the only reference was a
+  commented-out `@import`; syntax highlighting comes from the npm `prismjs` package.
+- Corrected the nullable type in the users JSON schema: `['string', null]` (the JS literal)
+  is not valid JSON Schema and should be `['string', 'null']`. This is a no-op under
+  objection 2, which does not run schema validation, but would make the User model throw on
+  every operation under objection 3. (`server/models/users.js`)
+
+### Note on verification
+
+The container image is built and tested by CI. The changes in this release were developed
+in an environment without `node_modules`, so they were verified with targeted behavioural
+tests against the real `lodash`, `objection` 2 and 3, `ajv` 6 and 8, and live local HTTP
+servers, rather than by running the project's own lint and test suites locally.
+
+---
+
 ## v1.2.0
 
 Closes the review workflow bypass. **This release removes capability from some users — read

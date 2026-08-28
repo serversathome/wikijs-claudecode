@@ -70,6 +70,7 @@ in each release.
 
 | Release | Image tags published |
 |---------|----------------------|
+| `v1.3.0` | `1.3.0`, `1.3`, `1` |
 | `v1.2.0` | `1.2.0`, `1.2`, `1` |
 | `v1.1.0` | `1.1.0`, `1.1`, `1` |
 | `v1.0.0` | *(none — see below)* |
@@ -100,7 +101,7 @@ never overwrites it.
 releases within a minor version, or the full tag to freeze exactly:
 
 ```yaml
-image: ghcr.io/serversathome/wikijs-claudecode:1.1
+image: ghcr.io/serversathome/wikijs-claudecode:1.3
 ```
 
 **Roll back** — change the tag and recreate the container:
@@ -148,7 +149,7 @@ services:
 
   wiki:
     # Pin to a release tag so you can roll back; use :latest to track main
-    image: ghcr.io/serversathome/wikijs-claudecode:1.2
+    image: ghcr.io/serversathome/wikijs-claudecode:1.3
     container_name: wikijs
     depends_on:
       - db
