@@ -93,7 +93,8 @@ module.exports = {
   buildPageUrl(localeCode, path, hash = '') {
     const host = WIKI.config.host || 'http://localhost'
     const hashPart = hash ? `#${hash}` : ''
-    return `${host}/${localeCode}/${path}${hashPart}`
+    // Encode so a path can't inject line breaks or other text into the message
+    return `${host}/${encodeURI(`${localeCode}/${path}`)}${hashPart ? encodeURI(hashPart) : ''}`
   },
 
   /**

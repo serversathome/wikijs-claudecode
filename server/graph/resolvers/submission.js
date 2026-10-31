@@ -56,6 +56,19 @@ async function ensureCanEditTargetPage(user, pageId) {
 }
 
 /**
+ * Ensure the user may write both the submission's path and the existing page it targets.
+ * Used wherever a submission becomes (or is about to become) pending or published, because the
+ * stored pageId can predate the current request: a draft saved earlier, a page moved since, or
+ * access revoked since.
+ */
+async function ensureCanEditSubmissionTarget(user, { pageId, localeCode, path }) {
+  if (!WIKI.auth.checkAccess(user, ['write:pages'], { locale: localeCode, path })) {
+    throw new WIKI.Error.PageUpdateForbidden()
+  }
+  await ensureCanEditTargetPage(user, pageId)
+}
+
+/**
  * Patch a submission only while it is still in one of the expected statuses.
  * Returns true if the row was updated, so concurrent reviewer/submitter actions can't
  * overwrite each other (e.g. a reject landing after an approval already published the page).
@@ -233,7 +246,8 @@ module.exports = {
     async submit(obj, args, context) {
       try {
         // Validate path
-        if (args.path.includes('.') || args.path.includes(' ') || args.path.includes('\\') || args.path.includes('//')) {
+        // eslint-disable-next-line no-control-regex
+        if (args.path.includes('.') || args.path.includes(' ') || args.path.includes('\\') || args.path.includes('//') || /[\x00-\x1f\x7f]/.test(args.path)) {
           throw new WIKI.Error.PageIllegalPath()
         }
 
@@ -318,6 +332,8 @@ module.exports = {
           }
 
           if (existingSubmission) {
+            // The patch below keeps the stored pageId when none is supplied, so check that one too
+            await ensureCanEditTargetPage(context.req.user, args.pageId || existingSubmission.pageId)
             await WIKI.models.pageSubmissions.query(trx).findById(existingSubmission.id).patch({
               pageId: args.pageId || existingSubmission.pageId || null,
               path: path,
@@ -391,7 +407,7 @@ module.exports = {
      */
     async approve(obj, args, context) {
       try {
-        const submission = await WIKI.models.pageSubmissions.query().findById(args.id)
+        let submission = await WIKI.models.pageSubmissions.query().findById(args.id)
         if (!submission) {
           throw new Error('Submission not found')
         }
@@ -399,10 +415,6 @@ module.exports = {
         if (submission.status !== 'pending') {
           throw new Error('Submission has already been reviewed')
         }
-
-        // Parse stored data
-        const tags = safeJsonParse(submission.tags, [])
-        const extra = safeJsonParse(submission.extra, {})
 
         // This section was modified by Claude Code - claim the submission before publishing.
         // The conditional patch only succeeds for the first reviewer to reach it, so two
@@ -421,25 +433,42 @@ module.exports = {
           throw new Error('Submission has already been reviewed')
         }
 
+        // Re-read now that the claim blocks further edits: a reviewer update or a resubmission
+        // that landed between the first read and the claim must be what gets published.
+        submission = await WIKI.models.pageSubmissions.query().findById(args.id)
+        const tags = safeJsonParse(submission.tags, [])
+        const extra = safeJsonParse(submission.extra, {})
+
         let page
-        let restorePageFormat = null
         try {
+          // Re-check that the submitter may still edit what this submission targets. The page
+          // updates below run with the reviewer's rights, and the reviewer only sees the
+          // submission's path - not that its pageId may point at a page the submitter can't edit
+          // (e.g. a draft saved before that page was moved or their access was revoked).
+          const submitter = await WIKI.models.users.query().findById(submission.submitterId).withGraphFetched('groups')
+          if (!submitter) {
+            throw new Error('The user who made this submission no longer exists.')
+          }
+          try {
+            await ensureCanEditSubmissionTarget(submitter, submission)
+          } catch (err) {
+            throw new Error('The submitter no longer has write access to this page (or the page it targets). Reject the submission instead.')
+          }
+
           if (submission.pageId) {
             const ogPage = await WIKI.models.pages.query().findById(submission.pageId)
             if (!ogPage) {
               throw new Error('The page this submission targets no longer exists.')
             }
 
-            // The submission's content is stored in its own format, which can differ from the
-            // page's (a reviewer edit always converts it to markdown). updatePage keeps the
-            // page's editor/contentType and renders with it, so align them first or the page
-            // would render markdown as HTML (or vice versa).
-            if (submission.editorKey !== ogPage.editorKey || submission.contentType !== ogPage.contentType) {
-              await WIKI.models.pages.query().findById(ogPage.id).patch({
-                editorKey: submission.editorKey,
-                contentType: submission.contentType
-              })
-              restorePageFormat = { editorKey: ogPage.editorKey, contentType: ogPage.contentType, id: ogPage.id }
+            // A move is authorised by updatePage only *after* the new content has been written,
+            // rendered and synced to storage, so a forbidden move would leave the content live
+            // while the submission is put back to pending. Check it up front instead.
+            if (submission.path !== ogPage.path || submission.localeCode !== ogPage.localeCode) {
+              if (!WIKI.auth.checkAccess(context.req.user, ['manage:pages'], { locale: ogPage.localeCode, path: ogPage.path }) ||
+                !WIKI.auth.checkAccess(context.req.user, ['write:pages'], { locale: submission.localeCode, path: submission.path })) {
+                throw new WIKI.Error.PageMoveForbidden()
+              }
             }
 
             // Update existing page.
@@ -460,6 +489,11 @@ module.exports = {
               scriptCss: _.isEmpty(extra.css) ? _.get(ogPage, 'extra.css', '') : extra.css,
               scriptJs: _.isEmpty(extra.js) ? _.get(ogPage, 'extra.js', '') : extra.js,
               action: 'approved',
+              // The submission's content is stored in its own format, which can differ from the
+              // page's (a reviewer edit converts HTML to markdown). Without this the page would
+              // keep rendering with its old content type, e.g. markdown rendered as HTML.
+              editorKey: submission.editorKey,
+              contentType: submission.contentType,
               user: context.req.user
             })
             // Credit the submitter as the page author
@@ -498,14 +532,7 @@ module.exports = {
             })
           }
         } catch (err) {
-          // Publishing failed - undo the format change and release the claim so the
-          // submission stays actionable
-          if (restorePageFormat) {
-            await WIKI.models.pages.query().findById(restorePageFormat.id).patch({
-              editorKey: restorePageFormat.editorKey,
-              contentType: restorePageFormat.contentType
-            })
-          }
+          // Publishing failed - release the claim so the submission stays actionable
           await WIKI.models.pageSubmissions.query().findById(args.id).patch({
             status: 'pending',
             reviewerId: null,
@@ -672,8 +699,17 @@ module.exports = {
           content: args.content
         }
         if (submission.contentType === 'html') {
-          updateData.contentType = 'markdown'
-          updateData.editorKey = 'markdown'
+          // Only relabel when the conversion the reviewer was shown actually succeeded; when it
+          // fails, `single` falls back to the raw HTML, so the edited content is still HTML.
+          let converted = false
+          try {
+            htmlToMarkdown(submission.content)
+            converted = true
+          } catch (err) { }
+          if (converted) {
+            updateData.contentType = 'markdown'
+            updateData.editorKey = 'markdown'
+          }
         }
 
         if (args.title) {
@@ -747,7 +783,8 @@ module.exports = {
     async saveDraft(obj, args, context) {
       try {
         // Validate path
-        if (args.path.includes('.') || args.path.includes(' ') || args.path.includes('\\') || args.path.includes('//')) {
+        // eslint-disable-next-line no-control-regex
+        if (args.path.includes('.') || args.path.includes(' ') || args.path.includes('\\') || args.path.includes('//') || /[\x00-\x1f\x7f]/.test(args.path)) {
           throw new WIKI.Error.PageIllegalPath()
         }
 
@@ -839,6 +876,9 @@ module.exports = {
               throw new Error('You can only edit draft, pending, or rejected submissions')
             }
 
+            // The patch below keeps the stored pageId when none is supplied, so check that one too
+            await ensureCanEditTargetPage(context.req.user, args.pageId || existingSubmission.pageId)
+
             await WIKI.models.pageSubmissions.query(trx).findById(existingSubmission.id).patch({
               pageId: args.pageId || existingSubmission.pageId || null,
               path: path,
@@ -918,6 +958,9 @@ module.exports = {
         if (submission.status !== 'draft' && submission.status !== 'rejected') {
           throw new Error('You can only resubmit draft or rejected submissions')
         }
+
+        // Access may have changed (or the page moved) since the draft was saved
+        await ensureCanEditSubmissionTarget(context.req.user, submission)
 
         // Update submission status to pending
         if (!(await patchIfStatus(args.id, ['draft', 'rejected'], {

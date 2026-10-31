@@ -162,7 +162,7 @@ html(lang=siteConfig.lang)
               embed = makeIframe('https://www.dailymotion.com/embed/video/' + dmMatch[1], 'autoplay; fullscreen; picture-in-picture');
             } else if (scMatch) {
               embed = makeIframe('https://www.screencast.com/users/' + scMatch[1] + '/folders/' + scMatch[2] + '/media/' + scMatch[3] + '/embed');
-            } else if (/^(https?:\/\/|\/)[^\s"'<>]+\.(mp4|webm|ogg)$/i.test(url)) {
+            } else if (/^(https?:\/\/|\/(?!\/))[^\s"'<>]+\.(mp4|webm|ogg)$/i.test(url)) {
               var ext = url.split('.').pop().toLowerCase();
               embed = document.createElement('video');
               embed.setAttribute('controls', '');

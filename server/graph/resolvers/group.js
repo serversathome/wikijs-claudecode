@@ -50,7 +50,7 @@ module.exports = {
         WIKI.auth.checkExclusiveAccess(req.user, ['manage:users', 'write:groups'], ['manage:groups', 'manage:system']) &&
         grp.permissions.some(p => {
           const resType = _.last(p.split(':'))
-          return ['users', 'groups', 'navigation', 'theme', 'api', 'system'].includes(resType)
+          return [...WIKI.auth.ELEVATED_RESOURCE_TYPES, 'system'].includes(resType)
         })
       ) {
         throw new gql.GraphQLError('You are not authorized to assign a user to this administrative group.')
@@ -68,6 +68,11 @@ module.exports = {
       const usr = await WIKI.models.users.query().findById(args.userId)
       if (!usr) {
         throw new gql.GraphQLError('Invalid User ID')
+      }
+
+      // Don't let a non-admin change the group memberships of a user they can't manage
+      if (!(await WIKI.auth.checkModifyUserAccess(req.user, usr.id))) {
+        throw new gql.GraphQLError('You are not authorized to modify a user that belongs to an administrative group.')
       }
 
       // Check for existing relation
@@ -110,9 +115,15 @@ module.exports = {
     /**
      * DELETE GROUP
      */
-    async delete (obj, args) {
+    async delete (obj, args, { req }) {
       if (args.id === 1 || args.id === 2) {
         throw new gql.GraphQLError('Cannot delete this group.')
+      }
+
+      // Deleting an administrative group demotes all its members
+      const existingGrp = await WIKI.models.groups.query().findById(args.id)
+      if (existingGrp && !WIKI.auth.canManageGroupWithPermissions(req.user, existingGrp.permissions)) {
+        throw new gql.GraphQLError('You are not authorized to delete this administrative group.')
       }
 
       await WIKI.models.groups.query().deleteById(args.id)
@@ -130,7 +141,7 @@ module.exports = {
     /**
      * UNASSIGN USER FROM GROUP
      */
-    async unassignUser (obj, args) {
+    async unassignUser (obj, args, { req }) {
       if (args.userId === 2) {
         throw new gql.GraphQLError('Cannot unassign Guest user')
       }
@@ -144,6 +155,12 @@ module.exports = {
       const usr = await WIKI.models.users.query().findById(args.userId)
       if (!usr) {
         throw new gql.GraphQLError('Invalid User ID')
+      }
+      // Removing a user from an administrative group demotes them, so it needs the same rights
+      // as assigning to it - and the user's other groups must be manageable too
+      if (!WIKI.auth.canManageGroupWithPermissions(req.user, grp.permissions) ||
+        !(await WIKI.auth.checkModifyUserAccess(req.user, usr.id))) {
+        throw new gql.GraphQLError('You are not authorized to remove this user from this administrative group.')
       }
       await grp.$relatedQuery('users').unrelate().where('userId', usr.id)
 
@@ -170,12 +187,22 @@ module.exports = {
         args.redirectOnLogin = '/'
       }
 
+      // The group's *current* permissions matter too: otherwise a write:groups holder could
+      // demote every administrator by stripping the permissions of the Administrators group
+      const existingGrp = await WIKI.models.groups.query().findById(args.id)
+      if (!existingGrp) {
+        throw new gql.GraphQLError('Invalid Group ID')
+      }
+      if (!WIKI.auth.canManageGroupWithPermissions(req.user, existingGrp.permissions)) {
+        throw new gql.GraphQLError('You are not authorized to modify this administrative group.')
+      }
+
       // Check assigned permissions for write:groups
       if (
         WIKI.auth.checkExclusiveAccess(req.user, ['write:groups'], ['manage:groups', 'manage:system']) &&
         args.permissions.some(p => {
           const resType = _.last(p.split(':'))
-          return ['users', 'groups', 'navigation', 'theme', 'api', 'system'].includes(resType)
+          return [...WIKI.auth.ELEVATED_RESOURCE_TYPES, 'system'].includes(resType)
         })
       ) {
         throw new gql.GraphQLError('You are not authorized to manage this group or assign these administrative permissions.')
