@@ -353,6 +353,41 @@ module.exports = {
   },
 
   /**
+   * Check if a requester may modify (update, delete, (de)activate, change 2FA of) a target user.
+   *
+   * checkAssignUserToGroupAccess only looks at the groups being assigned, so on its own a
+   * manage:users holder could still reset an administrator's password or email through
+   * users.update (omitting `groups`), or remove them from the Administrators group. The same
+   * elevation rules apply to the target's *current* groups: users in a manage:system group can
+   * only be modified by manage:system, and users in groups with user/group/navigation/theme/api
+   * permissions require manage:groups.
+   */
+  async checkModifyUserAccess(requester, targetUserId) {
+    const requesterPermissions = requester.permissions ? requester.permissions : requester.getGlobalPermissions()
+
+    if (requesterPermissions.includes('manage:system')) {
+      return true
+    }
+
+    const target = await WIKI.models.users.query().findById(targetUserId).withGraphFetched('groups')
+    if (!target) {
+      return true // nothing to protect; the mutation itself reports the missing user
+    }
+
+    return (target.groups || []).every(grp => {
+      const perms = grp.permissions || []
+      if (perms.includes('manage:system')) {
+        return false
+      }
+      if (perms.some(p => ['users', 'groups', 'navigation', 'theme', 'api'].includes(_.last(p.split(':')))) &&
+        !requesterPermissions.includes('manage:groups')) {
+        return false
+      }
+      return true
+    })
+  },
+
+  /**
    * Check and apply Page Rule specificity
    *
    * @access private

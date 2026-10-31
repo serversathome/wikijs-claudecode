@@ -29,7 +29,12 @@ module.exports = {
     WIKI.logger.info('(STORAGE/GIT) Initializing...')
     this.repoPath = path.resolve(WIKI.ROOTPATH, this.config.localRepoPath)
     await fs.ensureDir(this.repoPath)
-    this.git = sgit(this.repoPath, { maxConcurrentProcesses: 1 })
+    // simple-git >= 3.32 refuses to set core.sshCommand unless explicitly allowed. The SSH
+    // command is built from the admin-only storage config (sshPrivateKeyPath), so it is trusted.
+    this.git = sgit(this.repoPath, {
+      maxConcurrentProcesses: 1,
+      unsafe: { allowUnsafeSshCommand: true }
+    })
 
     // Set custom binary path
     if (!_.isEmpty(this.config.gitBinaryPath)) {

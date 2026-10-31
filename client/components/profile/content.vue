@@ -303,7 +303,7 @@ export default {
             query: gql`
               query {
                 submissions {
-                  mySubmissions {
+                  mySubmissions(limit: 500) {
                     id
                     pageId
                     path
@@ -523,7 +523,7 @@ export default {
         query: gql`
           query {
             submissions {
-              mySubmissions {
+              mySubmissions(limit: 500) {
                 id
                 pageId
                 path

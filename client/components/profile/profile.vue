@@ -685,14 +685,14 @@ export default {
     }
   },
   watch: {
-    'user.appearance': (newValue, oldValue) => {
+    'user.appearance' (newValue, oldValue) {
       if (newValue === '') {
         WIKI.$vuetify.theme.dark = siteConfig.darkMode
       } else {
         WIKI.$vuetify.theme.dark = (newValue === 'dark')
       }
     },
-    'user.dateFormat': (newValue, oldValue) => {
+    'user.dateFormat' (newValue, oldValue) {
       if (newValue === '') {
         WIKI.$moment.updateLocale(WIKI.$moment.locale(), null)
       } else {
@@ -703,7 +703,7 @@ export default {
         })
       }
     },
-    'user.timezone': (newValue, oldValue) => {
+    'user.timezone' (newValue, oldValue) {
       if (newValue === '') {
         WIKI.$moment.tz.setDefault()
       } else {

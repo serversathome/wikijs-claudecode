@@ -45,14 +45,14 @@ type SubmissionQuery {
     status: SubmissionStatus
     limit: Int
     offset: Int
-  ): [PageSubmissionListItem]! @auth(requires: ["write:pages"])
+  ): [PageSubmissionListItem]! @auth(requires: ["write:pages", "manage:pages", "manage:system"])
 
   """
   Get a single submission owned by the current user (full content)
   """
   mySingle(
     id: Int!
-  ): PageSubmission @auth(requires: ["write:pages"])
+  ): PageSubmission @auth(requires: ["write:pages", "manage:pages", "manage:system"])
 }
 
 # -----------------------------------------------
@@ -75,7 +75,7 @@ type SubmissionMutation {
     scriptJs: String
     tags: [String]!
     title: String!
-  ): SubmissionResponse @auth(requires: ["write:pages"])
+  ): SubmissionResponse @auth(requires: ["write:pages", "manage:pages", "manage:system"])
 
   """
   Approve a pending submission (publishes the page)
@@ -108,7 +108,7 @@ type SubmissionMutation {
   """
   delete(
     id: Int!
-  ): DefaultResponse @auth(requires: ["write:pages"])
+  ): DefaultResponse @auth(requires: ["write:pages", "manage:pages", "manage:system"])
 
   """
   Save a draft (create or update)
@@ -126,21 +126,21 @@ type SubmissionMutation {
     scriptJs: String
     tags: [String]!
     title: String!
-  ): SubmissionResponse @auth(requires: ["write:pages"])
+  ): SubmissionResponse @auth(requires: ["write:pages", "manage:pages", "manage:system"])
 
   """
   Resubmit a rejected or draft submission for review
   """
   resubmit(
     id: Int!
-  ): SubmissionResponse @auth(requires: ["write:pages"])
+  ): SubmissionResponse @auth(requires: ["write:pages", "manage:pages", "manage:system"])
 
   """
   Withdraw (unsubmit) a pending submission back to draft
   """
   unsubmit(
     id: Int!
-  ): SubmissionResponse @auth(requires: ["write:pages"])
+  ): SubmissionResponse @auth(requires: ["write:pages", "manage:pages", "manage:system"])
 }
 
 # -----------------------------------------------

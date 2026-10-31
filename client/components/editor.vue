@@ -184,8 +184,8 @@ export default {
       dialogUnsaved: false,
       exitConfirmed: false,
       initContentParsed: '',
-      currentDraftId: null,  // This was added by Claude Code for draft saving
-      draftLoaded: false,  // Flag to prevent dialogs when loading a draft
+      currentDraftId: null, // This was added by Claude Code for draft saving
+      draftLoaded: false, // Flag to prevent dialogs when loading a draft
       savedState: {
         description: '',
         isPublished: false,
@@ -320,7 +320,7 @@ export default {
           query: gql`
             query {
               submissions {
-                mySubmissions {
+                mySubmissions(limit: 500) {
                   id
                   pageId
                   path
@@ -367,8 +367,10 @@ export default {
           })
           const fullDraft = _.get(detailResp, 'data.submissions.mySingle')
           if (fullDraft) {
-            // Load draft content into editor
-            const content = fullDraft.contentMarkdown || fullDraft.content
+            // Load draft content into editor. Use the raw content: the editor is switched to the
+            // draft's own editorKey below, so contentMarkdown (an HTML->markdown conversion meant
+            // for reviewers) would load markdown text into e.g. CKEditor and corrupt the draft.
+            const content = fullDraft.content
             this.initContentParsed = content
             this.$store.set('editor/content', content)
             this.$store.set('page/title', fullDraft.title)
@@ -382,7 +384,7 @@ export default {
               this.$store.set('editor/editorKey', fullDraft.editorKey)
             }
             this.currentDraftId = draft.id
-            this.draftLoaded = true  // Prevent dialogs from showing
+            this.draftLoaded = true // Prevent dialogs from showing
             this.setCurrentSavedState()
             this.$store.commit('showNotification', {
               message: 'Loaded your saved draft',

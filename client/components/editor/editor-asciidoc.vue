@@ -126,6 +126,7 @@
 </template>
 
 <script>
+/* global siteLangs, siteConfig */
 import _ from 'lodash'
 import { get, sync } from 'vuex-pathify'
 import DOMPurify from 'dompurify'

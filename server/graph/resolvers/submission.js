@@ -35,6 +35,40 @@ function safeJsonParse(str, fallback) {
 }
 
 /**
+ * Ensure the user may edit the existing page a submission targets.
+ *
+ * The write:pages check in submit/saveDraft only covers the path supplied in the args. Without
+ * this, a user with write access to one path could pass another page's pageId: on approval,
+ * updatePage would overwrite that page and move it to the supplied path.
+ */
+async function ensureCanEditTargetPage(user, pageId) {
+  if (!pageId) { return }
+  const page = await WIKI.models.pages.query().select('path', 'localeCode').findById(pageId)
+  if (!page) {
+    throw new WIKI.Error.PageNotFound()
+  }
+  if (!WIKI.auth.checkAccess(user, ['write:pages'], {
+    locale: page.localeCode,
+    path: page.path
+  })) {
+    throw new WIKI.Error.PageUpdateForbidden()
+  }
+}
+
+/**
+ * Patch a submission only while it is still in one of the expected statuses.
+ * Returns true if the row was updated, so concurrent reviewer/submitter actions can't
+ * overwrite each other (e.g. a reject landing after an approval already published the page).
+ */
+async function patchIfStatus(id, statuses, data) {
+  const updated = await WIKI.models.pageSubmissions.query()
+    .findById(id)
+    .whereIn('status', statuses)
+    .patch(data)
+  return updated > 0
+}
+
+/**
  * Convert HTML content to Markdown
  */
 function htmlToMarkdown(htmlContent) {
@@ -233,6 +267,7 @@ module.exports = {
         })) {
           throw new WIKI.Error.PageUpdateForbidden()
         }
+        await ensureCanEditTargetPage(context.req.user, args.pageId)
 
         // Check for empty content
         if (!args.content || _.trim(args.content).length < 1) {
@@ -387,11 +422,24 @@ module.exports = {
         }
 
         let page
+        let restorePageFormat = null
         try {
           if (submission.pageId) {
             const ogPage = await WIKI.models.pages.query().findById(submission.pageId)
             if (!ogPage) {
               throw new Error('The page this submission targets no longer exists.')
+            }
+
+            // The submission's content is stored in its own format, which can differ from the
+            // page's (a reviewer edit always converts it to markdown). updatePage keeps the
+            // page's editor/contentType and renders with it, so align them first or the page
+            // would render markdown as HTML (or vice versa).
+            if (submission.editorKey !== ogPage.editorKey || submission.contentType !== ogPage.contentType) {
+              await WIKI.models.pages.query().findById(ogPage.id).patch({
+                editorKey: submission.editorKey,
+                contentType: submission.contentType
+              })
+              restorePageFormat = { editorKey: ogPage.editorKey, contentType: ogPage.contentType, id: ogPage.id }
             }
 
             // Update existing page.
@@ -450,7 +498,14 @@ module.exports = {
             })
           }
         } catch (err) {
-          // Publishing failed - release the claim so the submission stays actionable
+          // Publishing failed - undo the format change and release the claim so the
+          // submission stays actionable
+          if (restorePageFormat) {
+            await WIKI.models.pages.query().findById(restorePageFormat.id).patch({
+              editorKey: restorePageFormat.editorKey,
+              contentType: restorePageFormat.contentType
+            })
+          }
           await WIKI.models.pageSubmissions.query().findById(args.id).patch({
             status: 'pending',
             reviewerId: null,
@@ -484,11 +539,20 @@ module.exports = {
           const submitter = await WIKI.models.users.query().findById(submission.submitterId)
           if (submitter && submitter.email) {
             const reviewerName = context.req.user.name || context.req.user.email
-            const pageUrl = `${WIKI.config.host || 'http://localhost'}/${submission.localeCode}/${submission.path}`
+            const pageUrl = `${WIKI.config.host || 'http://localhost'}/${encodeURI(`${submission.localeCode}/${submission.path}`)}`
+            // mail.send always renders an HTML template, so one must be named or it throws
             await WIKI.mail.send({
+              template: 'submissionReviewed',
               to: submitter.email,
               subject: `Your page submission "${fullSubmission.title}" was approved`,
-              text: `Hello ${submitter.name || 'there'},\n\nYour page submission "${fullSubmission.title}" has been approved and published.\n\nReviewed by: ${reviewerName}\n\nView the page: ${pageUrl}\n\nThank you.`
+              text: `Hello ${submitter.name || 'there'},\n\nYour page submission "${fullSubmission.title}" has been approved and published.\n\nReviewed by: ${reviewerName}\n\nView the page: ${pageUrl}\n\nThank you.`,
+              data: {
+                preheadertext: `Your page submission "${fullSubmission.title}" was approved`,
+                title: `Your submission "${fullSubmission.title}" was approved`,
+                content: `Your page submission has been approved and published.\n\nReviewed by: ${reviewerName}`,
+                buttonLink: pageUrl,
+                buttonText: 'View Page'
+              }
             })
             WIKI.logger.info(`Approval email sent to ${submitter.email} for submission ${args.id}`)
           }
@@ -526,13 +590,17 @@ module.exports = {
           throw new Error('A comment is required when rejecting a submission')
         }
 
-        // Update submission status
-        await WIKI.models.pageSubmissions.query().findById(args.id).patch({
+        // Update submission status - only if still pending, so a reject racing an approval
+        // can't mark an already-published submission as rejected
+        const rejected = await patchIfStatus(args.id, ['pending'], {
           status: 'rejected',
           reviewerId: context.req.user.id,
           reviewComment: args.comment,
           reviewedAt: new Date().toISOString()
         })
+        if (!rejected) {
+          throw new Error('Submission has already been reviewed')
+        }
 
         const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
 
@@ -550,11 +618,20 @@ module.exports = {
           const submitter = await WIKI.models.users.query().findById(submission.submitterId)
           if (submitter && submitter.email) {
             const reviewerName = context.req.user.name || context.req.user.email
-            const mySubmissionsUrl = `${WIKI.config.host || 'http://localhost'}/my-submissions`
+            // The submitter's drafts & submissions live on the profile "My Content" page
+            const mySubmissionsUrl = `${WIKI.config.host || 'http://localhost'}/p/content`
             await WIKI.mail.send({
+              template: 'submissionReviewed',
               to: submitter.email,
               subject: `Your page submission "${fullSubmission.title}" was rejected`,
-              text: `Hello ${submitter.name || 'there'},\n\nYour page submission "${fullSubmission.title}" has been rejected.\n\nReason: ${args.comment}\n\nReviewed by: ${reviewerName}\n\nYou can view your submissions and make edits at: ${mySubmissionsUrl}\n\nThank you.`
+              text: `Hello ${submitter.name || 'there'},\n\nYour page submission "${fullSubmission.title}" has been rejected.\n\nReason: ${args.comment}\n\nReviewed by: ${reviewerName}\n\nYou can view your submissions and make edits at: ${mySubmissionsUrl}\n\nThank you.`,
+              data: {
+                preheadertext: `Your page submission "${fullSubmission.title}" was rejected`,
+                title: `Your submission "${fullSubmission.title}" was rejected`,
+                content: `Reason: ${args.comment}\n\nReviewed by: ${reviewerName}`,
+                buttonLink: mySubmissionsUrl,
+                buttonText: 'View My Submissions'
+              }
             })
             WIKI.logger.info(`Rejection email sent to ${submitter.email} for submission ${args.id}`)
           }
@@ -588,11 +665,15 @@ module.exports = {
           throw new Error('Cannot edit a submission that has already been reviewed')
         }
 
-        // Build update object
+        // Build update object. The reviewer edits contentMarkdown, which is only an actual
+        // conversion for HTML submissions; other formats (asciidoc, code, ...) are edited as-is
+        // and must keep their own editor, or approval would render them as markdown.
         const updateData = {
-          content: args.content,
-          contentType: 'markdown',
-          editorKey: 'markdown'
+          content: args.content
+        }
+        if (submission.contentType === 'html') {
+          updateData.contentType = 'markdown'
+          updateData.editorKey = 'markdown'
         }
 
         if (args.title) {
@@ -603,8 +684,10 @@ module.exports = {
           updateData.description = args.description
         }
 
-        // Update the submission
-        await WIKI.models.pageSubmissions.query().findById(args.id).patch(updateData)
+        // Update the submission (only while still pending)
+        if (!(await patchIfStatus(args.id, ['pending'], updateData))) {
+          throw new Error('Cannot edit a submission that has already been reviewed')
+        }
 
         const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
 
@@ -698,6 +781,7 @@ module.exports = {
         })) {
           throw new WIKI.Error.PageUpdateForbidden()
         }
+        await ensureCanEditTargetPage(context.req.user, args.pageId)
 
         // Format CSS Scripts
         let scriptCss = ''
@@ -836,12 +920,14 @@ module.exports = {
         }
 
         // Update submission status to pending
-        await WIKI.models.pageSubmissions.query().findById(args.id).patch({
+        if (!(await patchIfStatus(args.id, ['draft', 'rejected'], {
           status: 'pending',
           reviewerId: null,
           reviewComment: null,
           reviewedAt: null
-        })
+        }))) {
+          throw new Error('You can only resubmit draft or rejected submissions')
+        }
 
         const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
 
@@ -885,10 +971,11 @@ module.exports = {
           throw new Error('You can only withdraw pending submissions')
         }
 
-        // Update submission status to draft
-        await WIKI.models.pageSubmissions.query().findById(args.id).patch({
-          status: 'draft'
-        })
+        // Update submission status to draft - only while still pending, so a withdrawal
+        // racing an approval can't flip an approved submission back to draft
+        if (!(await patchIfStatus(args.id, ['pending'], { status: 'draft' }))) {
+          throw new Error('You can only withdraw pending submissions')
+        }
 
         const fullSubmission = await WIKI.models.pageSubmissions.getSubmission(args.id)
 

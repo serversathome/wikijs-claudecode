@@ -13,3 +13,6 @@ globals:
   document: false
   navigator: false
   window: false
+rules:
+  # Global event-bus events ($root.$emit('saveConflict') etc.) are camelCase by convention
+  vue/custom-event-name-casing: off

@@ -10,6 +10,18 @@ const _ = require('lodash')
 
 /* global WIKI */
 
+/**
+ * Sanitize a user-supplied value before it is placed in a notification message.
+ * Names, titles and comments come from anyone who can register, comment or submit; collapsing
+ * newlines/control characters keeps them on one line so they can't forge extra lines such as a
+ * fake "Review it here: <link>" in the admin's channel, and truncation bounds the message size.
+ */
+function field(value, max = 200) {
+  // eslint-disable-next-line no-control-regex
+  const str = _.toString(value).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return str.length > max ? `${str.slice(0, max - 1)}…` : str
+}
+
 module.exports = {
   /**
    * Initialize the notification service
@@ -39,8 +51,13 @@ module.exports = {
     }
 
     try {
-      const urls = appriseUrls.trim().split(/\s+/).filter(u => u.length > 0)
-      await execFileAsync('apprise', ['-t', title, '-b', body, ...urls], { timeout: 10000 })
+      // URLs starting with '-' would be parsed as apprise CLI options (e.g. --attach=<file>),
+      // and '--' ends option parsing so the remaining values are only ever treated as URLs.
+      const urls = appriseUrls.trim().split(/\s+/).filter(u => u.length > 0 && !u.startsWith('-'))
+      if (urls.length < 1) {
+        return false
+      }
+      await execFileAsync('apprise', ['-t', title, '-b', body, '--', ...urls], { timeout: 10000 })
       WIKI.logger.info(`Notification sent: ${title}`)
       return true
     } catch (err) {
@@ -92,7 +109,7 @@ module.exports = {
     const pageUrl = this.buildPageUrl(page.localeCode, page.path, 'comments')
     await this.send(
       'New Comment',
-      `A new comment was posted by ${authorName} on page "${page.title}"\n\n${pageUrl}`
+      `A new comment was posted by ${field(authorName)} on page "${field(page.title)}"\n\n${pageUrl}`
     )
   },
 
@@ -116,7 +133,7 @@ module.exports = {
     const submissionsUrl = this.buildSubmissionsUrl()
     await this.send(
       'Page Submitted for Review',
-      `A new page "${submission.title}" was submitted for review by ${submission.submitterName || 'Unknown'}\n\nReview it here: ${submissionsUrl}`
+      `A new page "${field(submission.title)}" was submitted for review by ${field(submission.submitterName || 'Unknown')}\n\nReview it here: ${submissionsUrl}`
     )
   },
 
@@ -133,7 +150,7 @@ module.exports = {
     const pageUrl = this.buildPageUrl(submission.localeCode, submission.path)
     await this.send(
       'Page Approved',
-      `The page "${submission.title}" was approved by ${reviewerName}\n\nView it here: ${pageUrl}`
+      `The page "${field(submission.title)}" was approved by ${field(reviewerName)}\n\nView it here: ${pageUrl}`
     )
   },
 
@@ -148,11 +165,11 @@ module.exports = {
       return
     }
     const reviewerName = reviewer ? (reviewer.name || reviewer.email || 'Admin') : 'Admin'
-    const reasonText = reason ? `\nReason: ${reason}` : ''
+    const reasonText = reason ? `\nReason: ${field(reason, 1000)}` : ''
     const submissionsUrl = this.buildSubmissionsUrl()
     await this.send(
       'Page Rejected',
-      `The page "${submission.title}" was rejected by ${reviewerName}${reasonText}\n\nView details: ${submissionsUrl}`
+      `The page "${field(submission.title)}" was rejected by ${field(reviewerName)}${reasonText}\n\nView details: ${submissionsUrl}`
     )
   },
 
@@ -178,7 +195,7 @@ module.exports = {
     const usersUrl = this.buildUsersUrl()
     await this.send(
       'New User Registered',
-      `A new user has registered:\n\nName: ${userName}\nEmail: ${userEmail}\n\nManage users: ${usersUrl}`
+      `A new user has registered:\n\nName: ${field(userName)}\nEmail: ${field(userEmail)}\n\nManage users: ${usersUrl}`
     )
   }
 }

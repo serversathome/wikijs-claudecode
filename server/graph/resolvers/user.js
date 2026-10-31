@@ -77,8 +77,11 @@ module.exports = {
         return graphHelper.generateError(err)
       }
     },
-    async delete (obj, args) {
+    async delete (obj, args, context) {
       try {
+        if (!(await WIKI.auth.checkModifyUserAccess(context.req.user, args.id))) {
+          throw new Error('You are not authorized to modify a user that belongs to an administrative group.')
+        }
         if (args.id <= 2) {
           throw new WIKI.Error.UserDeleteProtected()
         }
@@ -100,6 +103,9 @@ module.exports = {
     },
     async update (obj, args, context) {
       try {
+        if (!(await WIKI.auth.checkModifyUserAccess(context.req.user, args.id))) {
+          throw new Error('You are not authorized to modify a user that belongs to an administrative group.')
+        }
         if (!(await WIKI.auth.checkAssignUserToGroupAccess(context.req.user, args.groups))) {
           throw new Error('You are not authorized to modify / assign a user from / to an administrative group.')
         }
@@ -113,8 +119,11 @@ module.exports = {
         return graphHelper.generateError(err)
       }
     },
-    async verify (obj, args) {
+    async verify (obj, args, context) {
       try {
+        if (!(await WIKI.auth.checkModifyUserAccess(context.req.user, args.id))) {
+          throw new Error('You are not authorized to modify a user that belongs to an administrative group.')
+        }
         await WIKI.models.users.query().patch({ isVerified: true }).findById(args.id)
 
         return {
@@ -124,8 +133,11 @@ module.exports = {
         return graphHelper.generateError(err)
       }
     },
-    async activate (obj, args) {
+    async activate (obj, args, context) {
       try {
+        if (!(await WIKI.auth.checkModifyUserAccess(context.req.user, args.id))) {
+          throw new Error('You are not authorized to modify a user that belongs to an administrative group.')
+        }
         await WIKI.models.users.query().patch({ isActive: true }).findById(args.id)
 
         return {
@@ -135,8 +147,11 @@ module.exports = {
         return graphHelper.generateError(err)
       }
     },
-    async deactivate (obj, args) {
+    async deactivate (obj, args, context) {
       try {
+        if (!(await WIKI.auth.checkModifyUserAccess(context.req.user, args.id))) {
+          throw new Error('You are not authorized to modify a user that belongs to an administrative group.')
+        }
         if (args.id <= 2) {
           throw new Error('Cannot deactivate system accounts.')
         }
@@ -152,8 +167,11 @@ module.exports = {
         return graphHelper.generateError(err)
       }
     },
-    async enableTFA (obj, args) {
+    async enableTFA (obj, args, context) {
       try {
+        if (!(await WIKI.auth.checkModifyUserAccess(context.req.user, args.id))) {
+          throw new Error('You are not authorized to modify a user that belongs to an administrative group.')
+        }
         await WIKI.models.users.query().patch({ tfaIsActive: true, tfaSecret: null }).findById(args.id)
 
         return {
@@ -163,8 +181,11 @@ module.exports = {
         return graphHelper.generateError(err)
       }
     },
-    async disableTFA (obj, args) {
+    async disableTFA (obj, args, context) {
       try {
+        if (!(await WIKI.auth.checkModifyUserAccess(context.req.user, args.id))) {
+          throw new Error('You are not authorized to modify a user that belongs to an administrative group.')
+        }
         await WIKI.models.users.query().patch({ tfaIsActive: false, tfaSecret: null }).findById(args.id)
 
         return {
