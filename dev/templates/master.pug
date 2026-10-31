@@ -128,30 +128,49 @@ html(lang=siteConfig.lang)
         const rxYoutube = /^.*(?:(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|watch\?v=|watch\?.+&v=)))([^#&?]*).*/;
         const rxVimeo = /vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/(?:[^\/]*)\/videos\/|album\/(?:\d+)\/video\/|)(\d+)(?:$|\/|\?)/;
         const rxDailymotion = /(?:dailymotion\.com(?:\/embed)?(?:\/video|\/hub)|dai\.ly)\/([0-9a-z]+)(?:[-_0-9a-zA-Z]+(?:#video=)?([a-z0-9]+)?)?/;
-        const rxScreencast = /^.*(?:(?:https?:)?\/\/)?(?:www\.)?screencast\.com\/users\/([a-z0-9_-]+)\/folders\/([a-z0-9%_-]+)\/media\/([a-z0-9_-]+)(?:\/)?$/i;
+        const rxScreencast = /^(?:(?:https?:)?\/\/)?(?:www\.)?screencast\.com\/users\/([a-z0-9_-]+)\/folders\/([a-z0-9%_-]+)\/media\/([a-z0-9_-]+)(?:\/)?$/i;
 
         function convertVideoEmbeds() {
           document.querySelectorAll('.contents oembed, .contents figure.media oembed, .contents a, .contents p').forEach(function(elm) {
             var url = elm.hasAttribute('url') ? elm.getAttribute('url') : (elm.hasAttribute('href') ? elm.getAttribute('href') : elm.textContent.trim());
             if (!url) return;
 
-            var newElmHtml = null;
+            // Every embed is built with DOM APIs from strictly validated IDs - never by
+            // concatenating the URL into HTML. This runs after server-side sanitization, so a
+            // crafted "URL" in a plain paragraph (e.g. containing "><img onerror=...>) would
+            // otherwise be injected as live markup.
             var ytMatch = url.match(rxYoutube);
             var vimeoMatch = url.match(rxVimeo);
             var dmMatch = url.match(rxDailymotion);
             var scMatch = url.match(rxScreencast);
+            var embed = null;
 
-            if (ytMatch && ytMatch[1]) {
-              newElmHtml = '<iframe src="https://www.youtube-nocookie.com/embed/' + ytMatch[1] + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+            function makeIframe(src, allow) {
+              var ifr = document.createElement('iframe');
+              ifr.setAttribute('src', src);
+              ifr.setAttribute('frameborder', '0');
+              if (allow) { ifr.setAttribute('allow', allow); }
+              ifr.setAttribute('allowfullscreen', '');
+              return ifr;
+            }
+
+            if (ytMatch && /^[A-Za-z0-9_-]{6,20}$/.test(ytMatch[1])) {
+              embed = makeIframe('https://www.youtube-nocookie.com/embed/' + ytMatch[1], 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
             } else if (vimeoMatch && vimeoMatch[1]) {
-              newElmHtml = '<iframe src="https://player.vimeo.com/video/' + vimeoMatch[1] + '" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>';
+              embed = makeIframe('https://player.vimeo.com/video/' + vimeoMatch[1], 'autoplay; fullscreen; picture-in-picture');
             } else if (dmMatch && dmMatch[1]) {
-              newElmHtml = '<iframe src="https://www.dailymotion.com/embed/video/' + dmMatch[1] + '" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>';
+              embed = makeIframe('https://www.dailymotion.com/embed/video/' + dmMatch[1], 'autoplay; fullscreen; picture-in-picture');
             } else if (scMatch) {
-              newElmHtml = '<iframe src="' + url + '/embed" frameborder="0" allowfullscreen></iframe>';
-            } else if (url.match(/\.(mp4|webm|ogg)$/i)) {
-              var type = url.endsWith('.mp4') ? 'video/mp4' : (url.endsWith('.webm') ? 'video/webm' : 'video/ogg');
-              newElmHtml = '<video controls><source src="' + url + '" type="' + type + '">Your browser does not support the video tag.</video>';
+              embed = makeIframe('https://www.screencast.com/users/' + scMatch[1] + '/folders/' + scMatch[2] + '/media/' + scMatch[3] + '/embed');
+            } else if (/^(https?:\/\/|\/)[^\s"'<>]+\.(mp4|webm|ogg)$/i.test(url)) {
+              var ext = url.split('.').pop().toLowerCase();
+              embed = document.createElement('video');
+              embed.setAttribute('controls', '');
+              var source = document.createElement('source');
+              source.setAttribute('src', url);
+              source.setAttribute('type', ext === 'mp4' ? 'video/mp4' : (ext === 'webm' ? 'video/webm' : 'video/ogg'));
+              embed.appendChild(source);
+              embed.appendChild(document.createTextNode('Your browser does not support the video tag.'));
             } else {
               return;
             }
@@ -169,7 +188,7 @@ html(lang=siteConfig.lang)
 
             var newElm = document.createElement('div');
             newElm.className = 'responsive-embed';
-            newElm.innerHTML = newElmHtml;
+            newElm.appendChild(embed);
             elm.replaceWith(newElm);
           });
         }

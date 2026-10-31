@@ -373,7 +373,7 @@ export default {
           query: gql`
             query ($status: SubmissionStatus) {
               submissions {
-                list(status: $status) {
+                list(status: $status, limit: 500) {
                   id
                   pageId
                   path

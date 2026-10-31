@@ -10,6 +10,75 @@ For a line-by-line record of every AI-authored modification, see [CHANGES.md](CH
 
 ---
 
+## Unreleased
+
+Audit release: security fixes, review-workflow bug fixes, and dependency security updates.
+No permission model changes. Upgrading needs no action. **SQLite installs gain the
+`pageSubmissions` table on first start**; for them the review workflow did not work before.
+
+### Security
+
+- **`manage:users` could take over administrator accounts.** `users.update` only checked the
+  groups being *assigned*, so a user manager could reset an admin's password or email (by
+  omitting `groups`) or remove them from the Administrators group. `update`, `delete`,
+  `verify`, `activate`, `deactivate`, `enableTFA` and `disableTFA` now also check the
+  target's current groups: admins can only be modified by `manage:system`, and members of
+  groups with user/group/navigation/theme/api permissions require `manage:groups`.
+  (`server/core/auth.js` `checkModifyUserAccess`, `server/graph/resolvers/user.js`)
+- **Stored XSS through video embeds.** The client-side embed script pasted the URL text of
+  a paragraph into `innerHTML` after server-side sanitization, so a paragraph such as
+  `https://a/"><img src=x onerror=…>.mp4` executed for every viewer. Embeds are now built
+  with DOM APIs from strictly validated IDs. (`dev/templates/master.pug`)
+- **Submissions could target pages the submitter cannot edit.** `submit`/`saveDraft`
+  checked access to the supplied `path` only. Passing another page's `pageId` meant that on
+  approval that page was overwritten and moved. The target page is now access-checked too.
+- **Apprise hardening.** User-supplied names, titles and comments are collapsed to one line
+  and truncated, so they can't forge extra lines (e.g. a fake "Review it here" link) in
+  admin channels. URLs are passed after `--` and URLs starting with `-` are rejected.
+
+### Fixed
+
+- **SQLite: review workflow was broken.** SQLite reads migrations only from
+  `db/migrations-sqlite`, which had no `pageSubmissions` migration. Every submissions query
+  failed there, and so did deleting a user. (`server/db/migrations-sqlite/2.6.0.js`)
+- **MySQL/MariaDB: startup failed on migration 2.6.1**, which used PostgreSQL-only SQL. It
+  now runs on PostgreSQL only; the other engines already get `draft` from 2.6.0.
+- **Approval/rejection emails were never sent.** `mail.send` requires a template and none was
+  passed. They now use a new `submission-reviewed` template (with user content HTML-escaped).
+  Also added the missing `account-welcome` template that welcome emails for admin-created
+  users referenced (an upstream bug).
+- **Rejection email linked to `/my-submissions`**, which doesn't exist. It now links to
+  `/p/content`.
+- **Reviewer edits broke HTML (CKEditor) pages.** A reviewer edit converts the submission to
+  markdown, but approval kept the page's HTML content type, so the page rendered raw
+  markdown. Approval now carries the submission's editor/content type over to the page.
+  Reviewer edits of non-HTML submissions (e.g. AsciiDoc) no longer get relabelled as markdown.
+- **Reopening a CKEditor draft corrupted it.** The editor loaded the reviewer's
+  HTML→markdown conversion into the HTML editor. It now loads the raw draft content.
+- **Status races.** `reject`, `update`, `resubmit` and `unsubmit` now change a submission only
+  if it is still in the expected status. A reject that arrives after an approval can no
+  longer mark a published submission as rejected.
+- **Administrators got "Forbidden" on draft/submission endpoints** (`mySubmissions`,
+  `saveDraft`, ...), because they required `write:pages` exactly. They now also accept
+  `manage:pages` / `manage:system`. Per-page access checks are unchanged.
+- **Submission lists stopped at 50 rows.** The admin list, the My Content page and the
+  editor's draft lookup now request up to the server maximum (500).
+- **`yarn test` could not pass.** 110 ESLint errors stopped it before Jest ran, and Jest also
+  collected the Cypress E2E specs. The lint errors are fixed, and Jest now ignores
+  `dev/cypress`. New tests cover the user-modification guard and the submission fixes.
+
+### Dependencies
+
+Security updates within the same major version: express 4.22.3, body-parser 1.20.9,
+compression 1.8.2, dompurify 3.4.17, js-yaml 3.15.2, lodash 4.18.1, luxon 1.28.1,
+mysql2 3.24.6, nanoid 3.3.20, simple-git 3.36.0 and tar-fs 2.1.5. `proxy-addr` and
+`fast-xml-parser` are pinned to patched versions via `resolutions`.
+
+simple-git ≥ 3.32 refuses `core.sshCommand` by default, so Git storage over SSH now opts in
+explicitly (`unsafe.allowUnsafeSshCommand`). The command comes from admin-only configuration.
+
+---
+
 ## v1.3.0
 
 Maintenance release. One real bug fix, three deprecated dependencies removed, and a new

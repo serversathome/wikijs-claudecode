@@ -55,6 +55,10 @@ module.exports = {
             if (!url.includes('://')) {
               throw new Error(`Invalid Apprise URL: "${url}". Each URL must contain a protocol scheme (e.g. discord://, slack://).`)
             }
+            if (url.startsWith('-')) {
+              throw new Error(`Invalid Apprise URL: "${url}". URLs must not start with "-".`)
+            }
+            // eslint-disable-next-line no-control-regex
             if (/[\x00-\x1f]/.test(url)) {
               throw new Error('Apprise URLs must not contain control characters.')
             }
