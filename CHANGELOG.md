@@ -13,28 +13,43 @@ For a line-by-line record of every AI-authored modification, see [CHANGES.md](CH
 ## Unreleased
 
 Audit release: security fixes, review-workflow bug fixes, and dependency security updates.
-No permission model changes. Upgrading needs no action. **SQLite installs gain the
-`pageSubmissions` table on first start**; for them the review workflow did not work before.
+Upgrading needs no manual steps. **SQLite installs gain the `pageSubmissions` table on first
+start**; for them the review workflow did not work before.
+
+**Behaviour change:** users without `manage:system` can no longer modify, demote or reassign
+administrators, and need `manage:groups` to act on groups (or their members) that hold
+elevated permissions, which now include `write:scripts` and `write:styles`. Delegated
+user/group managers who relied on that should be given `manage:groups`.
 
 ### Security
 
 - **`manage:users` could take over administrator accounts.** `users.update` only checked the
   groups being *assigned*, so a user manager could reset an admin's password or email (by
-  omitting `groups`) or remove them from the Administrators group. `update`, `delete`,
-  `verify`, `activate`, `deactivate`, `enableTFA` and `disableTFA` now also check the
-  target's current groups: admins can only be modified by `manage:system`, and members of
-  groups with user/group/navigation/theme/api permissions require `manage:groups`.
-  (`server/core/auth.js` `checkModifyUserAccess`, `server/graph/resolvers/user.js`)
+  omitting `groups`) or remove them from the Administrators group. Likewise a `write:groups`
+  holder could strip the Administrators group's permissions (`groups.update`), delete an
+  administrative group, or unassign admins from it. All user mutations (`update`, `delete`,
+  `verify`, `activate`, `deactivate`, `enableTFA`, `disableTFA`) and group mutations
+  (`update`, `delete`, `assignUser`, `unassignUser`) now check the target's *current* groups
+  with one shared rule: `manage:system` groups can only be touched by `manage:system`, and
+  groups with user/group/navigation/theme/api/scripts/styles permissions require
+  `manage:groups`. `write:scripts`/`write:styles` count as elevated because page JavaScript
+  can steal an administrator's session.
+  (`server/core/auth.js` `canManageGroupWithPermissions`, `checkModifyUserAccess`)
 - **Stored XSS through video embeds.** The client-side embed script pasted the URL text of
   a paragraph into `innerHTML` after server-side sanitization, so a paragraph such as
   `https://a/"><img src=x onerror=…>.mp4` executed for every viewer. Embeds are now built
-  with DOM APIs from strictly validated IDs. (`dev/templates/master.pug`)
+  with DOM APIs from strictly validated IDs, and video files must be `http(s)://` or
+  same-site paths (no protocol-relative third-party URLs). (`dev/templates/master.pug`)
 - **Submissions could target pages the submitter cannot edit.** `submit`/`saveDraft`
   checked access to the supplied `path` only. Passing another page's `pageId` meant that on
-  approval that page was overwritten and moved. The target page is now access-checked too.
+  approval that page was overwritten and moved. The target page is now access-checked on
+  submit and saveDraft (including a pageId stored on an earlier draft) and on resubmit, and
+  approval re-checks that the submitter can still edit both the path and the target page.
 - **Apprise hardening.** User-supplied names, titles and comments are collapsed to one line
   and truncated, so they can't forge extra lines (e.g. a fake "Review it here" link) in
-  admin channels. URLs are passed after `--` and URLs starting with `-` are rejected.
+  admin channels. Page URLs in messages are URI-encoded, and submission paths may no longer
+  contain control characters. Apprise URLs are passed after `--` and URLs starting with `-`
+  are rejected.
 
 ### Fixed
 
@@ -42,7 +57,9 @@ No permission model changes. Upgrading needs no action. **SQLite installs gain t
   `db/migrations-sqlite`, which had no `pageSubmissions` migration. Every submissions query
   failed there, and so did deleting a user. (`server/db/migrations-sqlite/2.6.0.js`)
 - **MySQL/MariaDB: startup failed on migration 2.6.1**, which used PostgreSQL-only SQL. It
-  now runs on PostgreSQL only; the other engines already get `draft` from 2.6.0.
+  now runs on PostgreSQL only. A new migration `2.6.3` adds `draft` to the status column on
+  MySQL/MariaDB installs created by the first 2.6.0 build (whose ENUM lacked it, so saving
+  drafts failed), and adds a status CHECK constraint on MSSQL. It is safe to re-run.
 - **Approval/rejection emails were never sent.** `mail.send` requires a template and none was
   passed. They now use a new `submission-reviewed` template (with user content HTML-escaped).
   Also added the missing `account-welcome` template that welcome emails for admin-created
@@ -51,13 +68,17 @@ No permission model changes. Upgrading needs no action. **SQLite installs gain t
   `/p/content`.
 - **Reviewer edits broke HTML (CKEditor) pages.** A reviewer edit converts the submission to
   markdown, but approval kept the page's HTML content type, so the page rendered raw
-  markdown. Approval now carries the submission's editor/content type over to the page.
-  Reviewer edits of non-HTML submissions (e.g. AsciiDoc) no longer get relabelled as markdown.
+  markdown. Approval now passes the submission's editor/content type to `updatePage`, which
+  applies it after taking the history snapshot, so the previous version keeps its own format.
+  A move that the reviewer isn't allowed to make is rejected *before* anything is written,
+  rather than after the new content is already live. Reviewer edits of non-HTML submissions
+  (e.g. AsciiDoc), or of HTML that couldn't be converted, are no longer relabelled as markdown.
 - **Reopening a CKEditor draft corrupted it.** The editor loaded the reviewer's
   HTML→markdown conversion into the HTML editor. It now loads the raw draft content.
 - **Status races.** `reject`, `update`, `resubmit` and `unsubmit` now change a submission only
   if it is still in the expected status. A reject that arrives after an approval can no
-  longer mark a published submission as rejected.
+  longer mark a published submission as rejected. Approval re-reads the submission after
+  claiming it, so an edit that lands just before the claim is what gets published.
 - **Administrators got "Forbidden" on draft/submission endpoints** (`mySubmissions`,
   `saveDraft`, ...), because they required `write:pages` exactly. They now also accept
   `manage:pages` / `manage:system`. Per-page access checks are unchanged.

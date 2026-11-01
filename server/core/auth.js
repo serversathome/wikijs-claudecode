@@ -318,6 +318,36 @@ module.exports = {
   },
 
   /**
+   * Resource types whose permissions are administrative: holding them lets a user grant access,
+   * change site-wide settings, or (scripts/styles) run JavaScript/CSS in other users' browsers,
+   * which can be used to steal an administrator's session token.
+   */
+  ELEVATED_RESOURCE_TYPES: ['users', 'groups', 'navigation', 'theme', 'api', 'scripts', 'styles'],
+
+  /**
+   * Check if a requester may act on a group with the given permissions: assign users to it,
+   * remove users from it, modify or delete it, or modify its members.
+   *
+   * - manage:system groups can only be touched by manage:system
+   * - groups with elevated permissions (see ELEVATED_RESOURCE_TYPES) require manage:groups
+   */
+  canManageGroupWithPermissions(requester, groupPermissions = []) {
+    const requesterPermissions = requester.permissions ? requester.permissions : requester.getGlobalPermissions()
+    if (requesterPermissions.includes('manage:system')) {
+      return true
+    }
+    const perms = groupPermissions || []
+    if (perms.some(p => _.last(p.split(':')) === 'system')) {
+      return false
+    }
+    if (perms.some(p => module.exports.ELEVATED_RESOURCE_TYPES.includes(_.last(p.split(':')))) &&
+      !requesterPermissions.includes('manage:groups')) {
+      return false
+    }
+    return true
+  },
+
+  /**
    * Check if user can assign users to groups with elevated permissions
    */
   async checkAssignUserToGroupAccess(requester, groupIds = []) {
@@ -336,31 +366,17 @@ module.exports = {
     }
 
     const groups = await WIKI.models.groups.query().whereIn('id', groupIds)
-    return groups.every(grp => {
-      if (grp.permissions.includes('manage:system')) {
-        return false
-      }
-
-      if (grp.permissions.some(p => {
-        const permType = _.last(p.split(':'))
-        return ['users', 'groups', 'navigation', 'theme', 'api'].includes(permType)
-      }) && !requesterPermissions.includes('manage:groups')) {
-        return false
-      }
-
-      return true
-    })
+    return groups.every(grp => module.exports.canManageGroupWithPermissions(requester, grp.permissions))
   },
 
   /**
-   * Check if a requester may modify (update, delete, (de)activate, change 2FA of) a target user.
+   * Check if a requester may modify (update, delete, (de)activate, change 2FA of, add to or
+   * remove from a group) a target user.
    *
    * checkAssignUserToGroupAccess only looks at the groups being assigned, so on its own a
    * manage:users holder could still reset an administrator's password or email through
    * users.update (omitting `groups`), or remove them from the Administrators group. The same
-   * elevation rules apply to the target's *current* groups: users in a manage:system group can
-   * only be modified by manage:system, and users in groups with user/group/navigation/theme/api
-   * permissions require manage:groups.
+   * elevation rules apply to the target's *current* groups.
    */
   async checkModifyUserAccess(requester, targetUserId) {
     const requesterPermissions = requester.permissions ? requester.permissions : requester.getGlobalPermissions()
@@ -374,17 +390,7 @@ module.exports = {
       return true // nothing to protect; the mutation itself reports the missing user
     }
 
-    return (target.groups || []).every(grp => {
-      const perms = grp.permissions || []
-      if (perms.includes('manage:system')) {
-        return false
-      }
-      if (perms.some(p => ['users', 'groups', 'navigation', 'theme', 'api'].includes(_.last(p.split(':')))) &&
-        !requesterPermissions.includes('manage:groups')) {
-        return false
-      }
-      return true
-    })
+    return (target.groups || []).every(grp => module.exports.canManageGroupWithPermissions(requester, grp.permissions))
   },
 
   /**

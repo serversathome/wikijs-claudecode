@@ -423,7 +423,12 @@ module.exports = class Page extends Model {
     }
 
     // -> Update page
+    // editorKey/contentType are optional and only set when the caller changes the content's
+    // format (review workflow approvals). They are applied here, after the history snapshot
+    // above, so the previous version keeps its own format and date.
     await WIKI.models.pages.query().patch({
+      ...(opts.editorKey ? { editorKey: opts.editorKey } : {}),
+      ...(opts.contentType ? { contentType: opts.contentType } : {}),
       authorId: opts.user.id,
       content: opts.content,
       description: opts.description,

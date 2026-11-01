@@ -44,8 +44,36 @@ describe('core/auth/checkModifyUserAccess', () => {
     expect(await auth.checkModifyUserAccess(requester(['manage:users', 'manage:groups']), 5)).toBe(true)
   })
 
+  it('treats script/style writers as elevated (page JS can steal an admin session)', async () => {
+    target = { id: 7, groups: [{ id: 5, permissions: ['read:pages', 'write:pages', 'write:scripts'] }] }
+    expect(await auth.checkModifyUserAccess(requester(['manage:users']), 7)).toBe(false)
+    target = { id: 8, groups: [{ id: 6, permissions: ['read:pages', 'write:styles'] }] }
+    expect(await auth.checkModifyUserAccess(requester(['manage:users']), 8)).toBe(false)
+    expect(await auth.checkModifyUserAccess(requester(['manage:users', 'manage:groups']), 8)).toBe(true)
+  })
+
   it('allows manage:users to modify regular users', async () => {
     target = { id: 6, groups: [editorGroup] }
     expect(await auth.checkModifyUserAccess(requester(['manage:users']), 6)).toBe(true)
+  })
+})
+
+describe('core/auth/canManageGroupWithPermissions', () => {
+  const requester = perms => ({ id: 99, permissions: perms })
+
+  it('reserves manage:system groups for manage:system', () => {
+    expect(auth.canManageGroupWithPermissions(requester(['manage:groups']), ['manage:system'])).toBe(false)
+    expect(auth.canManageGroupWithPermissions(requester(['manage:system']), ['manage:system'])).toBe(true)
+  })
+
+  it('requires manage:groups for elevated groups', () => {
+    for (const perm of ['manage:users', 'write:groups', 'manage:navigation', 'manage:theme', 'manage:api', 'write:scripts', 'write:styles']) {
+      expect(auth.canManageGroupWithPermissions(requester(['write:groups']), [perm])).toBe(false)
+      expect(auth.canManageGroupWithPermissions(requester(['manage:groups']), [perm])).toBe(true)
+    }
+  })
+
+  it('allows ordinary groups', () => {
+    expect(auth.canManageGroupWithPermissions(requester(['write:groups']), ['read:pages', 'write:pages', 'manage:pages'])).toBe(true)
   })
 })
