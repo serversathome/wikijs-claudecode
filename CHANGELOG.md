@@ -10,11 +10,13 @@ For a line-by-line record of every AI-authored modification, see [CHANGES.md](CH
 
 ---
 
-## Unreleased
+## v1.4.0
 
 Audit release: security fixes, review-workflow bug fixes, and dependency security updates.
-Upgrading needs no manual steps. **SQLite installs gain the `pageSubmissions` table on first
-start**; for them the review workflow did not work before.
+Upgrading from v1.3.0 needs no manual steps, but **this release removes capability from some
+delegated user/group managers — read the behaviour change below before deploying.**
+**SQLite installs gain the `pageSubmissions` table on first start**; for them the review
+workflow did not work before.
 
 **Behaviour change:** users without `manage:system` can no longer modify, demote or reassign
 administrators, and need `manage:groups` to act on groups (or their members) that hold
